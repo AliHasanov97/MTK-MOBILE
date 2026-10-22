@@ -1,0 +1,45 @@
+package az.mtk.app
+
+import android.content.Context
+import az.mtk.app.data.api.AuthInterceptor
+import az.mtk.app.data.api.MtkRepository
+import az.mtk.app.data.api.MtkService
+import az.mtk.app.data.api.TokenAuthenticator
+import az.mtk.app.data.auth.AuthRepository
+import com.google.gson.GsonBuilder
+import okhttp3.OkHttpClient
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+import java.util.concurrent.TimeUnit
+
+/** Single, manually wired dependency graph — the app is small enough to skip DI frameworks. */
+object AppGraph {
+    lateinit var appContext: Context
+        private set
+
+    lateinit var auth: AuthRepository
+        private set
+
+    lateinit var repository: MtkRepository
+        private set
+
+    fun init(context: Context) {
+        appContext = context.applicationContext
+        auth = AuthRepository(appContext)
+
+        val client = OkHttpClient.Builder()
+            .connectTimeout(20, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .addInterceptor(AuthInterceptor(auth))
+            .authenticator(TokenAuthenticator(auth))
+            .build()
+
+        val retrofit = Retrofit.Builder()
+            .baseUrl(AppConfig.ApiBaseUrl)
+            .client(client)
+            .addConverterFactory(GsonConverterFactory.create(GsonBuilder().create()))
+            .build()
+
+        repository = MtkRepository(retrofit.create(MtkService::class.java))
+    }
+}
