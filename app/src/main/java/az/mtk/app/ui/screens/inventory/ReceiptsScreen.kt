@@ -35,6 +35,7 @@ import az.mtk.app.data.api.InvEnums
 import az.mtk.app.data.api.InvPurchaseLineInput
 import az.mtk.app.data.api.InvPurchaseResponse
 import az.mtk.app.data.api.InventoryRepo
+import az.mtk.app.data.api.InventoryRepository
 import az.mtk.app.ui.components.ConfirmDialog
 import az.mtk.app.ui.components.EmptyState
 import az.mtk.app.ui.components.ErrorState
@@ -277,7 +278,7 @@ private fun PurchaseDetailModal(
         ExportActionRow(
             title = "PDF qaimə",
             subtitle = "Satınalma sənədini endir və aç",
-            path = InventoryRepo.repository.purchasePdfPath(purchase.id),
+            path = InventoryRepository.purchasePdfPath(purchase.id),
             scope = androidx.compose.runtime.rememberCoroutineScope(),
         )
 

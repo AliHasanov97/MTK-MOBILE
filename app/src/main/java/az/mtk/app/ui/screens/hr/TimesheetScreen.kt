@@ -237,7 +237,7 @@ fun TimesheetScreen(
 }
 
 @Composable
-private fun Stat(label: String, value: Int) {
+private fun androidx.compose.foundation.layout.RowScope.Stat(label: String, value: Int) {
     Column(Modifier.weight(1f)) {
         Text(value.toString(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Text(label, style = MaterialTheme.typography.labelSmall, color = MtkColors.MutedSoft)
@@ -309,7 +309,7 @@ private fun EmployeeTimesheetRow(row: HrEmployeeTimesheetDto) {
             }
         }
         Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
-            byDay.keys.sorted().forEach { day ->
+            byDay.keys.filterNotNull().sorted().forEach { day ->
                 val cell = byDay[day] ?: HrTimesheetDayDto(day = day)
                 DayCell(cell)
             }

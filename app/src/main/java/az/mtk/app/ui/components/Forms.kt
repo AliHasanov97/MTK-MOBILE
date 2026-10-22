@@ -512,6 +512,7 @@ fun <T> SearchableSelect(
         }
     }
 
+    @OptIn(ExperimentalMaterial3Api::class)
     if (open) {
         ModalBottomSheet(
             onDismissRequest = { open = false },

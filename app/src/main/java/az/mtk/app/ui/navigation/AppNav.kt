@@ -23,13 +23,24 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.outlined.Apartment
+import androidx.compose.material.icons.outlined.Article
 import androidx.compose.material.icons.outlined.Badge
+import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Dashboard
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Forum
+import androidx.compose.material.icons.outlined.Inventory2
+import androidx.compose.material.icons.outlined.ManageAccounts
+import androidx.compose.material.icons.outlined.Paid
+import androidx.compose.material.icons.outlined.Payments
 import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -69,17 +80,47 @@ import az.mtk.app.ui.components.AvatarCircle
 import az.mtk.app.ui.components.BrandMark
 import az.mtk.app.ui.screens.DashboardScreen
 import az.mtk.app.ui.screens.MoreScreen
+import az.mtk.app.ui.screens.admin.AuditScreen
+import az.mtk.app.ui.screens.admin.CompanyProfileScreen
 import az.mtk.app.ui.screens.apartments.ApartmentDetailScreen
 import az.mtk.app.ui.screens.apartments.ApartmentsScreen
+import az.mtk.app.ui.screens.appeals.AppealDetailScreen
+import az.mtk.app.ui.screens.appeals.AppealsScreen
+import az.mtk.app.ui.screens.articles.ArticlesAdminScreen
 import az.mtk.app.ui.screens.buildings.BuildingDetailScreen
 import az.mtk.app.ui.screens.buildings.BuildingsScreen
 import az.mtk.app.ui.screens.charges.ChargesScreen
+import az.mtk.app.ui.screens.contracts.ContractDetailScreen
+import az.mtk.app.ui.screens.contracts.ContractsScreen
+import az.mtk.app.ui.screens.customers.CustomerDetailScreen
+import az.mtk.app.ui.screens.customers.CustomersScreen
+import az.mtk.app.ui.screens.finance.ExpensesScreen
+import az.mtk.app.ui.screens.finance.ExtraIncomeScreen
+import az.mtk.app.ui.screens.finance.PaymentsScreen
+import az.mtk.app.ui.screens.finance.RatesScreen
+import az.mtk.app.ui.screens.finance.TransactionsScreen
 import az.mtk.app.ui.screens.garages.GarageDetailScreen
 import az.mtk.app.ui.screens.garages.GaragesScreen
+import az.mtk.app.ui.screens.hr.DictionariesScreen
 import az.mtk.app.ui.screens.hr.EmployeeDetailScreen
+import az.mtk.app.ui.screens.hr.HrCalendarScreen
 import az.mtk.app.ui.screens.hr.HrScreen
+import az.mtk.app.ui.screens.hr.OrdersScreen
+import az.mtk.app.ui.screens.hr.TimesheetScreen
+import az.mtk.app.ui.screens.identity.GroupsScreen
+import az.mtk.app.ui.screens.identity.RolesScreen
+import az.mtk.app.ui.screens.identity.UsersScreen
+import az.mtk.app.ui.screens.inventory.IssuesScreen
+import az.mtk.app.ui.screens.inventory.MaterialDetailScreen
+import az.mtk.app.ui.screens.inventory.MaterialsScreen
+import az.mtk.app.ui.screens.inventory.ReceiptsScreen
+import az.mtk.app.ui.screens.inventory.WarehouseScreen
 import az.mtk.app.ui.screens.owners.OwnerDetailScreen
 import az.mtk.app.ui.screens.owners.OwnersScreen
+import az.mtk.app.ui.screens.reports.GeneralReportScreen
+import az.mtk.app.ui.screens.reports.PaymentChartScreen
+import az.mtk.app.ui.screens.vendors.VendorDetailScreen
+import az.mtk.app.ui.screens.vendors.VendorsScreen
 import az.mtk.app.ui.theme.MtkColors
 import kotlinx.coroutines.launch
 
@@ -93,17 +134,68 @@ object Routes {
     const val Hr = "hr"
     const val More = "more"
 
+    // Əməliyyatlar
+    const val Contracts = "contracts"
+    const val Vendors = "vendors"
+    const val Customers = "customers"
+
+    // Maliyyə əməliyyatları
+    const val Expenses = "expenses"
+    const val FinancePayments = "finance-payments"
+    const val ExtraIncome = "extra-income"
+    const val Rates = "rates"
+    const val Transactions = "transactions"
+
+    // Hesabatlar
+    const val PaymentChart = "payment-chart"
+    const val GeneralReport = "general-report"
+
+    // Müraciətlər
+    const val Appeals = "appeals"
+
+    // İnventar
+    const val Warehouse = "warehouse"
+    const val Materials = "materials"
+    const val Receipts = "receipts"
+    const val Issues = "issues"
+
+    // İdentifikasiya
+    const val Users = "users"
+    const val RolesList = "roles"
+    const val Groups = "groups"
+
+    // Xəbərlər / İdarəetmə
+    const val Articles = "articles"
+    const val CompanyProfile = "company-profile"
+    const val Audit = "audit"
+
+    // HR alt səhifələri
+    const val Orders = "orders"
+    const val Timesheet = "timesheet"
+    const val HrCalendar = "hr-calendar"
+    const val Dictionaries = "dictionaries"
+
     const val BuildingDetail = "building/{id}"
     const val ApartmentDetail = "apartment/{id}"
     const val OwnerDetail = "owner/{id}"
     const val GarageDetail = "garage/{id}"
     const val EmployeeDetail = "employee/{id}"
+    const val ContractDetail = "contract/{id}"
+    const val VendorDetail = "vendor/{id}"
+    const val CustomerDetail = "customer/{id}"
+    const val AppealDetail = "appeal/{id}"
+    const val MaterialDetail = "material/{id}"
 
     fun building(id: String) = "building/$id"
     fun apartment(id: String) = "apartment/$id"
     fun owner(id: String) = "owner/$id"
     fun garage(id: String) = "garage/$id"
     fun employee(id: String) = "employee/$id"
+    fun contract(id: String) = "contract/$id"
+    fun vendor(id: String) = "vendor/$id"
+    fun customer(id: String) = "customer/$id"
+    fun appeal(id: String) = "appeal/$id"
+    fun material(id: String) = "material/$id"
 }
 
 private data class SubTab(val label: String, val route: String)
@@ -149,11 +241,130 @@ private val NAV_MODULES = listOf(
         roles = listOf(Roles.ADMIN, Roles.BUILDING_MANAGER, Roles.ACCOUNTANT),
     ),
     NavModule(
+        id = "inventar",
+        label = "İnventar",
+        icon = Icons.Outlined.Inventory2,
+        rootRoute = Routes.Warehouse,
+        roles = listOf(Roles.ADMIN, Roles.BUILDING_MANAGER),
+        tabs = listOf(
+            SubTab("Anbar", Routes.Warehouse),
+            SubTab("Materiallar", Routes.Materials),
+            SubTab("Daxilolmalar", Routes.Receipts),
+            SubTab("Çıxarışlar", Routes.Issues),
+        ),
+    ),
+    NavModule(
+        id = "emeliyyatlar",
+        label = "Əməliyyatlar",
+        icon = Icons.Outlined.Description,
+        rootRoute = Routes.Contracts,
+        roles = listOf(Roles.ADMIN, Roles.BUILDING_MANAGER, Roles.ACCOUNTANT),
+        tabs = listOf(
+            SubTab("Müqavilələr", Routes.Contracts),
+            SubTab("Tədarükçülər", Routes.Vendors),
+            SubTab("Müştərilər", Routes.Customers),
+            SubTab("Borclar", Routes.Charges),
+        ),
+    ),
+    NavModule(
+        id = "maliyye",
+        label = "Maliyyə əməliyyatları",
+        icon = Icons.Outlined.Payments,
+        rootRoute = Routes.Expenses,
+        roles = listOf(Roles.ADMIN, Roles.BUILDING_MANAGER, Roles.ACCOUNTANT),
+        tabs = listOf(
+            SubTab("Xərclər", Routes.Expenses),
+            SubTab("Ödənişlər", Routes.FinancePayments),
+            SubTab("Əlavə gəlirlər", Routes.ExtraIncome),
+            SubTab("Tariflər", Routes.Rates),
+        ),
+    ),
+    NavModule(
+        id = "muqavileler-owner",
+        label = "Müqavilələr",
+        icon = Icons.Outlined.Description,
+        rootRoute = Routes.Contracts,
+        roles = listOf(Roles.OWNER),
+        tabs = listOf(
+            SubTab("Müqavilələr", Routes.Contracts),
+            SubTab("Tədarükçülər", Routes.Vendors),
+        ),
+    ),
+    NavModule(
+        id = "tarifler-owner",
+        label = "Tariflər",
+        icon = Icons.Outlined.Paid,
+        rootRoute = Routes.Rates,
+        roles = listOf(Roles.OWNER),
+    ),
+    NavModule(
+        id = "tranzaksiyalar",
+        label = "Tranzaksiyalar",
+        icon = Icons.Outlined.SwapHoriz,
+        rootRoute = Routes.Transactions,
+        roles = listOf(Roles.ADMIN, Roles.BUILDING_MANAGER, Roles.ACCOUNTANT, Roles.OWNER),
+    ),
+    NavModule(
+        id = "hesabatlar",
+        label = "Hesabatlar",
+        icon = Icons.Outlined.BarChart,
+        rootRoute = Routes.PaymentChart,
+        roles = listOf(Roles.ADMIN, Roles.BUILDING_MANAGER, Roles.ACCOUNTANT, Roles.OWNER),
+        tabs = listOf(
+            SubTab("Ödəniş qrafiki", Routes.PaymentChart),
+            SubTab("Ümumi hesabat", Routes.GeneralReport),
+        ),
+    ),
+    NavModule(
+        id = "muracietler",
+        label = "Müraciətlər",
+        icon = Icons.Outlined.Forum,
+        rootRoute = Routes.Appeals,
+        roles = listOf(Roles.ADMIN, Roles.BUILDING_MANAGER, Roles.OWNER),
+    ),
+    NavModule(
         id = "hr",
         label = "İnsan Resursları (HR)",
         icon = Icons.Outlined.Badge,
         rootRoute = Routes.Hr,
         roles = listOf(Roles.ADMIN, Roles.BUILDING_MANAGER),
+        tabs = listOf(
+            SubTab("İşçilər", Routes.Hr),
+            SubTab("Əmrlər", Routes.Orders),
+            SubTab("Tabel", Routes.Timesheet),
+            SubTab("Təqvim", Routes.HrCalendar),
+            SubTab("Lüğətlər", Routes.Dictionaries),
+        ),
+    ),
+    NavModule(
+        id = "identifikasiya",
+        label = "İdentifikasiya",
+        icon = Icons.Outlined.ManageAccounts,
+        rootRoute = Routes.Users,
+        roles = listOf(Roles.ADMIN),
+        tabs = listOf(
+            SubTab("İstifadəçilər", Routes.Users),
+            SubTab("Rollar", Routes.RolesList),
+            SubTab("Qruplar", Routes.Groups),
+        ),
+    ),
+    NavModule(
+        id = "xeberler",
+        label = "Xəbərlər",
+        icon = Icons.Outlined.Article,
+        rootRoute = Routes.Articles,
+        roles = listOf(Roles.ADMIN, Roles.BUILDING_MANAGER),
+    ),
+    NavModule(
+        id = "idareetme",
+        label = "İdarəetmə",
+        icon = Icons.Outlined.Settings,
+        rootRoute = Routes.CompanyProfile,
+        roles = listOf(Roles.ADMIN),
+        tabs = listOf(
+            SubTab("Şirkət məlumatları", Routes.CompanyProfile),
+            SubTab("Audit qeydləri", Routes.Audit),
+        ),
     ),
     NavModule(
         id = "profile",
@@ -176,7 +387,12 @@ fun AppNav(profile: UserProfile) {
         currentRoute.startsWith("apartment/") ||
         currentRoute.startsWith("owner/") ||
         currentRoute.startsWith("garage/") ||
-        currentRoute.startsWith("employee/")
+        currentRoute.startsWith("employee/") ||
+        currentRoute.startsWith("contract/") ||
+        currentRoute.startsWith("vendor/") ||
+        currentRoute.startsWith("customer/") ||
+        currentRoute.startsWith("appeal/") ||
+        currentRoute.startsWith("material/")
 
     val visibleModules = NAV_MODULES.filter { mod ->
         mod.roles == null || profile.hasAnyRole(*mod.roles.toTypedArray())
@@ -200,6 +416,36 @@ fun AppNav(profile: UserProfile) {
         currentRoute.startsWith("owner/") -> "Sahib detalları"
         currentRoute.startsWith("garage/") -> "Qaraj detalları"
         currentRoute.startsWith("employee/") -> "İşçi detalları"
+        currentRoute.startsWith("contract/") -> "Müqavilə detalları"
+        currentRoute.startsWith("vendor/") -> "Tədarükçü detalları"
+        currentRoute.startsWith("customer/") -> "Müştəri detalları"
+        currentRoute.startsWith("appeal/") -> "Müraciət detalları"
+        currentRoute.startsWith("material/") -> "Material detalları"
+        currentRoute == Routes.Orders -> "Əmrlər"
+        currentRoute == Routes.Timesheet -> "Tabel"
+        currentRoute == Routes.HrCalendar -> "Təqvim"
+        currentRoute == Routes.Dictionaries -> "Lüğətlər"
+        currentRoute == Routes.Contracts -> "Əməliyyatlar"
+        currentRoute == Routes.Vendors -> "Tədarükçülər"
+        currentRoute == Routes.Customers -> "Müştərilər"
+        currentRoute == Routes.Expenses -> "Xərclər"
+        currentRoute == Routes.FinancePayments -> "Ödənişlər"
+        currentRoute == Routes.ExtraIncome -> "Əlavə gəlirlər"
+        currentRoute == Routes.Rates -> "Tariflər"
+        currentRoute == Routes.Transactions -> "Tranzaksiyalar"
+        currentRoute == Routes.PaymentChart -> "Ödəniş qrafiki"
+        currentRoute == Routes.GeneralReport -> "Ümumi hesabat"
+        currentRoute == Routes.Appeals -> "Müraciətlər"
+        currentRoute == Routes.Warehouse -> "Anbar"
+        currentRoute == Routes.Materials -> "Materiallar"
+        currentRoute == Routes.Receipts -> "Daxilolmalar"
+        currentRoute == Routes.Issues -> "Çıxarışlar"
+        currentRoute == Routes.Users -> "İstifadəçilər"
+        currentRoute == Routes.RolesList -> "Rollar"
+        currentRoute == Routes.Groups -> "Qruplar"
+        currentRoute == Routes.Articles -> "Xəbərlər"
+        currentRoute == Routes.CompanyProfile -> "Şirkət məlumatları"
+        currentRoute == Routes.Audit -> "Audit qeydləri"
         else -> "MTK"
     }
 
@@ -365,6 +611,190 @@ fun AppNav(profile: UserProfile) {
                 composable(Routes.EmployeeDetail) { entry ->
                     val id = entry.arguments?.getString("id") ?: return@composable
                     EmployeeDetailScreen(employeeId = id, onBack = { nav.popBackStack() })
+                }
+
+                // ---- Əməliyyatlar ----
+                composable(Routes.Contracts) {
+                    ContractsScreen(
+                        onBack = { nav.popBackStack() },
+                        onOpenDetail = { nav.navigate(Routes.contract(it)) },
+                        showTopBar = false,
+                    )
+                }
+
+                composable(Routes.ContractDetail) { entry ->
+                    val id = entry.arguments?.getString("id") ?: return@composable
+                    ContractDetailScreen(
+                        contractId = id,
+                        onBack = { nav.popBackStack() },
+                        onDeleted = { nav.popBackStack() },
+                        profile = profile,
+                    )
+                }
+
+                composable(Routes.Vendors) {
+                    VendorsScreen(
+                        onBack = { nav.popBackStack() },
+                        onOpenDetail = { nav.navigate(Routes.vendor(it)) },
+                        showTopBar = false,
+                        profile = profile,
+                    )
+                }
+
+                composable(Routes.VendorDetail) { entry ->
+                    val id = entry.arguments?.getString("id") ?: return@composable
+                    VendorDetailScreen(
+                        vendorId = id,
+                        onBack = { nav.popBackStack() },
+                        profile = profile,
+                    )
+                }
+
+                composable(Routes.Customers) {
+                    CustomersScreen(
+                        onBack = { nav.popBackStack() },
+                        onOpenDetail = { nav.navigate(Routes.customer(it)) },
+                        showTopBar = false,
+                        profile = profile,
+                    )
+                }
+
+                composable(Routes.CustomerDetail) { entry ->
+                    val id = entry.arguments?.getString("id") ?: return@composable
+                    CustomerDetailScreen(
+                        customerId = id,
+                        onBack = { nav.popBackStack() },
+                        onOpenContract = { nav.navigate(Routes.contract(it)) },
+                        profile = profile,
+                    )
+                }
+
+                // ---- Maliyyə əməliyyatları ----
+                composable(Routes.Expenses) {
+                    ExpensesScreen(onBack = { nav.popBackStack() }, showTopBar = false)
+                }
+
+                composable(Routes.FinancePayments) {
+                    PaymentsScreen(onBack = { nav.popBackStack() }, showTopBar = false)
+                }
+
+                composable(Routes.ExtraIncome) {
+                    ExtraIncomeScreen(onBack = { nav.popBackStack() }, showTopBar = false)
+                }
+
+                composable(Routes.Rates) {
+                    RatesScreen(onBack = { nav.popBackStack() }, showTopBar = false)
+                }
+
+                composable(Routes.Transactions) {
+                    TransactionsScreen(onBack = { nav.popBackStack() }, showTopBar = false)
+                }
+
+                // ---- Hesabatlar ----
+                composable(Routes.PaymentChart) {
+                    PaymentChartScreen(onBack = { nav.popBackStack() }, showTopBar = false)
+                }
+
+                composable(Routes.GeneralReport) {
+                    GeneralReportScreen(onBack = { nav.popBackStack() }, showTopBar = false)
+                }
+
+                // ---- Müraciətlər ----
+                composable(Routes.Appeals) {
+                    AppealsScreen(
+                        onBack = { nav.popBackStack() },
+                        onOpenAppeal = { nav.navigate(Routes.appeal(it)) },
+                        showTopBar = false,
+                    )
+                }
+
+                composable(Routes.AppealDetail) { entry ->
+                    val id = entry.arguments?.getString("id") ?: return@composable
+                    AppealDetailScreen(
+                        appealId = id,
+                        onBack = { nav.popBackStack() },
+                        showTopBar = true,
+                    )
+                }
+
+                // ---- İnventar ----
+                composable(Routes.Warehouse) {
+                    WarehouseScreen(
+                        onBack = { nav.popBackStack() },
+                        onOpenMaterial = { nav.navigate(Routes.material(it)) },
+                        showTopBar = false,
+                    )
+                }
+
+                composable(Routes.Materials) {
+                    MaterialsScreen(
+                        onBack = { nav.popBackStack() },
+                        onOpenMaterial = { nav.navigate(Routes.material(it)) },
+                        showTopBar = false,
+                    )
+                }
+
+                composable(Routes.MaterialDetail) { entry ->
+                    val id = entry.arguments?.getString("id") ?: return@composable
+                    MaterialDetailScreen(
+                        nomenclatureId = id,
+                        onBack = { nav.popBackStack() },
+                    )
+                }
+
+                composable(Routes.Receipts) {
+                    ReceiptsScreen(onBack = { nav.popBackStack() }, showTopBar = false)
+                }
+
+                composable(Routes.Issues) {
+                    IssuesScreen(
+                        onBack = { nav.popBackStack() },
+                        onOpenMaterial = { nav.navigate(Routes.material(it)) },
+                        showTopBar = false,
+                    )
+                }
+
+                // ---- HR alt səhifələri ----
+                composable(Routes.Orders) {
+                    OrdersScreen(onBack = { nav.popBackStack() }, showTopBar = false)
+                }
+
+                composable(Routes.Timesheet) {
+                    TimesheetScreen(onBack = { nav.popBackStack() }, showTopBar = false)
+                }
+
+                composable(Routes.HrCalendar) {
+                    HrCalendarScreen(onBack = { nav.popBackStack() }, showTopBar = false)
+                }
+
+                composable(Routes.Dictionaries) {
+                    DictionariesScreen(onBack = { nav.popBackStack() }, showTopBar = false)
+                }
+
+                // ---- İdentifikasiya ----
+                composable(Routes.Users) {
+                    UsersScreen(onBack = { nav.popBackStack() }, showTopBar = false)
+                }
+
+                composable(Routes.RolesList) {
+                    RolesScreen(onBack = { nav.popBackStack() }, showTopBar = false)
+                }
+
+                composable(Routes.Groups) {
+                    GroupsScreen(onBack = { nav.popBackStack() }, showTopBar = false)
+                }
+
+                // ---- Xəbərlər / İdarəetmə ----
+                composable(Routes.Articles) {
+                    ArticlesAdminScreen(onBack = { nav.popBackStack() }, showTopBar = false)
+                }
+
+                composable(Routes.CompanyProfile) {
+                    CompanyProfileScreen(onBack = { nav.popBackStack() }, showTopBar = false)
+                }
+
+                composable(Routes.Audit) {
+                    AuditScreen(onBack = { nav.popBackStack() }, showTopBar = false)
                 }
 
                 composable(Routes.More) {

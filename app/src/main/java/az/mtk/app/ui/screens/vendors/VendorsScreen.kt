@@ -58,6 +58,7 @@ import az.mtk.app.ui.mtkViewModel
 import az.mtk.app.ui.theme.MtkColors
 import az.mtk.app.util.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class VendorsViewModel : ViewModel() {

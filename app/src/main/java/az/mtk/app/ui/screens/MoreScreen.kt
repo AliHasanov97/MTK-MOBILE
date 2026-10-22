@@ -18,9 +18,21 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Logout
+import androidx.compose.material.icons.outlined.SwapHoriz
+import androidx.compose.material.icons.outlined.Article
 import androidx.compose.material.icons.outlined.Badge
+import androidx.compose.material.icons.outlined.BarChart
+import androidx.compose.material.icons.outlined.Business
 import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.DirectionsCar
+import androidx.compose.material.icons.outlined.Forum
+import androidx.compose.material.icons.outlined.Groups
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Inventory2
+import androidx.compose.material.icons.outlined.LocalShipping
+import androidx.compose.material.icons.outlined.ManageAccounts
+import androidx.compose.material.icons.outlined.Payments
 import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -54,12 +66,25 @@ private data class MoreLink(
     val subtitle: String,
     val icon: ImageVector,
     val route: String,
+    val roles: List<String>? = null,
 )
 
 private val links = listOf(
     MoreLink("Qarajlar və Dayanacaqlar", "Qaraj yerlərinin uçotu", Icons.Outlined.DirectionsCar, Routes.Garages),
     MoreLink("Borclar və Ödənişlər", "Sakin hesabları və borc hesabatları", Icons.AutoMirrored.Outlined.ReceiptLong, Routes.Charges),
-    MoreLink("İnsan Resursları (HR)", "İşçilər və ərizələrin qeydiyyatı", Icons.Outlined.Badge, Routes.Hr),
+    MoreLink("Müqavilələr", "Xidmət müqavilələrinin idarəsi", Icons.Outlined.Description, Routes.Contracts),
+    MoreLink("Tədarükçülər", "Tədarükçü kataloqu və balansları", Icons.Outlined.LocalShipping, Routes.Vendors),
+    MoreLink("Müştərilər", "Müştəri qeydiyyatı və balansları", Icons.Outlined.Groups, Routes.Customers),
+    MoreLink("Maliyyə əməliyyatları", "Xərclər, ödənişlər, gəlirlər, tariflər", Icons.Outlined.Payments, Routes.Expenses),
+    MoreLink("Tranzaksiyalar", "Bütün maliyyə hərəkətləri", Icons.Outlined.SwapHoriz, Routes.Transactions),
+    MoreLink("Hesabatlar", "Ödəniş qrafiki və ümumi hesabat", Icons.Outlined.BarChart, Routes.PaymentChart),
+    MoreLink("Müraciətlər", "Sakin müraciətlərinin izlənməsi", Icons.Outlined.Forum, Routes.Appeals),
+    MoreLink("İnventar", "Anbar, materiallar, daxilolmalar", Icons.Outlined.Inventory2, Routes.Warehouse),
+    MoreLink("İnsan Resursları (HR)", "İşçilər, əmrlər, tabel, təqvim", Icons.Outlined.Badge, Routes.Hr),
+    MoreLink("İstifadəçilər", "Hesablar, rollar və qruplar", Icons.Outlined.ManageAccounts, Routes.Users, listOf(Roles.ADMIN)),
+    MoreLink("Xəbərlər", "Yayımlanan xəbərlərin idarəsi", Icons.Outlined.Article, Routes.Articles, listOf(Roles.ADMIN, Roles.BUILDING_MANAGER)),
+    MoreLink("Şirkət məlumatları", "Təşkilat profilinin saxlanması", Icons.Outlined.Business, Routes.CompanyProfile, listOf(Roles.ADMIN)),
+    MoreLink("Audit qeydləri", "Sistemdəki dəyişiklik jurnalı", Icons.Outlined.History, Routes.Audit, listOf(Roles.ADMIN)),
 )
 
 @Composable
@@ -156,7 +181,10 @@ fun MoreScreen(
             Spacer(Modifier.height(10.dp))
 
             MtkCard(padding = 4.dp) {
-                links.forEachIndexed { index, link ->
+                val visibleLinks = links.filter { link ->
+                    link.roles == null || profile.hasAnyRole(*link.roles.toTypedArray())
+                }
+                visibleLinks.forEachIndexed { index, link ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -200,7 +228,7 @@ fun MoreScreen(
                             modifier = Modifier.size(20.dp),
                         )
                     }
-                    if (index != links.lastIndex) {
+                    if (index != visibleLinks.lastIndex) {
                         HorizontalDivider(
                             modifier = Modifier.padding(horizontal = 12.dp),
                             color = MaterialTheme.colorScheme.outlineVariant,

@@ -49,10 +49,11 @@ import az.mtk.app.util.toUserMessage
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-private data class MaterialDetailState(
+internal data class MaterialDetailState(
     val nomenclature: InvNomenclatureResponse? = null,
     val stockQuantity: Double? = null,
     val history: List<InvPurchaseHistoryItem> = emptyList(),
@@ -63,7 +64,7 @@ private data class MaterialDetailState(
 
 class MaterialDetailViewModel : ViewModel() {
     private val _state = MutableStateFlow(MaterialDetailState())
-    val state = _state.asStateFlow()
+    internal val state: StateFlow<MaterialDetailState> = _state.asStateFlow()
 
     fun load(nomenclatureId: String) {
         viewModelScope.launch {
@@ -331,7 +332,7 @@ fun MaterialDetailScreen(
     }
 }
 
-private fun purchaseTone(status: Int?): Tone = when (status) {
+internal fun purchaseTone(status: Int?): Tone = when (status) {
     0 -> Tone.Warning
     1 -> Tone.Success
     2 -> Tone.Danger

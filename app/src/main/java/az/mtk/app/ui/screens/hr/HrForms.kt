@@ -25,7 +25,6 @@ import az.mtk.app.data.api.HrApplicationKind
 import az.mtk.app.data.api.HrApi
 import az.mtk.app.data.api.HrDirectOrderKind
 import az.mtk.app.data.api.HrLaborCodeCaseDto
-import az.mtk.app.data.api.toUserMessage
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.text.font.FontWeight
 import az.mtk.app.ui.components.ConfirmDialog
@@ -41,6 +40,7 @@ import az.mtk.app.ui.components.MtkTextField
 import az.mtk.app.ui.components.PrimaryButton
 import az.mtk.app.ui.components.SearchableSelect
 import az.mtk.app.ui.theme.MtkColors
+import az.mtk.app.util.toUserMessage
 import com.google.gson.JsonObject
 import kotlinx.coroutines.launch
 import java.time.LocalDate
