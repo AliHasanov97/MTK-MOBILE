@@ -24,6 +24,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -39,21 +40,27 @@ import androidx.lifecycle.viewModelScope
 import az.mtk.app.AppGraph
 import az.mtk.app.data.api.ApplicationDto
 import az.mtk.app.data.api.EmployeeDto
+import az.mtk.app.data.api.HrApi
 import az.mtk.app.ui.components.AvatarCircle
+import az.mtk.app.ui.components.ConfirmDialog
 import az.mtk.app.ui.components.EmptyState
 import az.mtk.app.ui.components.ErrorState
 import az.mtk.app.ui.components.LoadingState
 import az.mtk.app.ui.components.MtkCard
 import az.mtk.app.ui.components.Pager
 import az.mtk.app.ui.components.Pill
+import az.mtk.app.ui.components.PrimaryButton
 import az.mtk.app.ui.components.SearchField
 import az.mtk.app.ui.components.SimpleTopBar
 import az.mtk.app.ui.components.Tone
 import az.mtk.app.ui.mtkViewModel
 import az.mtk.app.ui.theme.MtkColors
 import az.mtk.app.util.Format
+import az.mtk.app.util.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 class HrViewModel : ViewModel() {
     private val _tab = MutableStateFlow(0)
@@ -82,6 +89,13 @@ fun HrScreen(
     val tab by viewModel.tab.collectAsStateWithLifecycle()
     val employees by viewModel.employees.state.collectAsStateWithLifecycle()
     val applications by viewModel.applications.state.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+
+    var showCreateEmployee by remember { mutableStateOf(false) }
+    var showCreateApplication by remember { mutableStateOf(false) }
+    var convertTarget by remember { mutableStateOf<ApplicationDto?>(null) }
+    var deleteTarget by remember { mutableStateOf<ApplicationDto?>(null) }
+    var actionError by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = Modifier
@@ -107,6 +121,24 @@ fun HrScreen(
         }
 
         if (tab == 0) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+            ) {
+                PrimaryButton(
+                    text = "+ Yeni işçi",
+                    onClick = { showCreateEmployee = true },
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(Modifier.width(8.dp))
+                PrimaryButton(
+                    text = "+ Yeni ərizə",
+                    onClick = { showCreateApplication = true },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Spacer(Modifier.height(8.dp))
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                 SearchField(
                     value = employees.query,
@@ -186,6 +218,18 @@ fun HrScreen(
                 }
             }
         } else {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+            ) {
+                PrimaryButton(
+                    text = "+ Yeni ərizə",
+                    onClick = { showCreateApplication = true },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Spacer(Modifier.height(8.dp))
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                 SearchField(
                     value = applications.query,
@@ -234,7 +278,29 @@ fun HrScreen(
                                     )
                                 }
                                 if (application.status != null) {
-                                    Pill(application.status, Tone.Warning)
+                                    Pill(
+                                        if (application.status == "ConvertedToOrder") "Əmrə çevrilib"
+                                        else if (application.status == "PendingApproval") "Gözləmədə"
+                                        else application.status!!,
+                                        if (application.status == "ConvertedToOrder") Tone.Success else Tone.Warning,
+                                    )
+                                }
+                            }
+                            if (application.status == "PendingApproval" && application.type != null) {
+                                Spacer(Modifier.height(6.dp))
+                                Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                                    TextButton(
+                                        onClick = { convertTarget = application },
+                                    ) {
+                                        Text(
+                                            if (application.type == 1) "İşə qəbul əmrinə çevir" else "Əmrə çevir",
+                                            color = MtkColors.Green,
+                                            fontSize = 12.sp,
+                                        )
+                                    }
+                                    TextButton(onClick = { deleteTarget = application }) {
+                                        Text("Sil", color = MtkColors.Negative, fontSize = 12.sp)
+                                    }
                                 }
                             }
                         }
@@ -260,6 +326,70 @@ fun HrScreen(
                 }
             }
         }
+    }
+
+    // ---- Modallar ----
+    if (showCreateEmployee) {
+        HrEmployeeCreateModal(
+            onDismiss = { showCreateEmployee = false },
+            onCreated = {
+                showCreateEmployee = false
+                viewModel.employees.refresh()
+            },
+        )
+    }
+
+    if (showCreateApplication) {
+        HrCreateApplicationModal(
+            onDismiss = { showCreateApplication = false },
+            onCreated = {
+                showCreateApplication = false
+                viewModel.applications.refresh()
+            },
+        )
+    }
+
+    convertTarget?.let { application ->
+        HrConvertApplicationModal(
+            type = application.type ?: 1,
+            applicationId = application.id,
+            applicantName = application.employee?.name ?: application.jobApplicant?.name,
+            onDismiss = { convertTarget = null },
+            onConverted = {
+                convertTarget = null
+                viewModel.applications.refresh()
+            },
+        )
+    }
+
+    deleteTarget?.let { application ->
+        ConfirmDialog(
+            title = "Ərizəni sil",
+            message = "№${application.applicationNumber ?: "—"} ${Format.applicationType(application.type)} ərizəsi silinsin?",
+            confirmLabel = "Sil",
+            danger = true,
+            onDismiss = { deleteTarget = null },
+            onConfirm = {
+                val type = application.type ?: 1
+                val id = application.id
+                deleteTarget = null
+                scope.launch {
+                    runCatching { HrApi.repository.deleteApplication(type, id) }
+                        .onSuccess { viewModel.applications.refresh() }
+                        .onFailure { actionError = it.toUserMessage() }
+                }
+            },
+        )
+    }
+
+    actionError?.let { message ->
+        ConfirmDialog(
+            title = "Xəta",
+            message = message,
+            confirmLabel = "Bağla",
+            onDismiss = { actionError = null },
+            onConfirm = { actionError = null },
+        )
     }
 }
 

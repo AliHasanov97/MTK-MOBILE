@@ -1,0 +1,121 @@
+package az.mtk.app.data.api
+
+/**
+ * Payments (Borclar) API — mirrors MTK-UI app/lib/api/payments.ts exactly.
+ * The Payments module has no [JsonStringEnumConverter]: every enum crosses the
+ * wire as its numeric ordinal (Unpaid=0, PartiallyPaid=1, Paid=2, Cancelled=3;
+ * payment methods Cash=0, BankTransfer=1, Card=2).
+ */
+
+data class ChargeGenerateBody(val period: String)
+
+data class GenerateChargesResultDto(
+    val period: String?,
+    val residentChargesCreated: Int?,
+    val apartmentsSkippedNoRate: Int?,
+    val garagesSkippedNoRate: Int?,
+    val vendorChargesCreated: Int?,
+)
+
+data class CreateChargeRequestDto(
+    val ownerId: String,
+    val apartmentId: String? = null,
+    val garageId: String? = null,
+    val amount: Double,
+    val description: String,
+    val period: String? = null,
+)
+
+data class CreatePaymentRequestDto(
+    val ownerId: String,
+    val amount: Double,
+    val paymentMethod: Int,
+    val notes: String? = null,
+    val apartmentId: String? = null,
+    val garageId: String? = null,
+)
+
+/** Body of the "no data" endpoints (cancel). */
+data class PaymentMessageDto(val message: String?)
+
+/** Allocations of a charge (who paid it, from advance or directly). */
+data class ChargeAllocationDto(
+    val id: String,
+    val paymentId: String?,
+    val allocatedAmount: Double?,
+    val paymentDate: String?,
+    val paymentStatus: String?,
+    val remainingDebtAfterPayment: Double?,
+    val isFromAdvance: Boolean?,
+)
+
+/** Allocations of a payment (which charges it covered). */
+data class PaymentAllocationDto(
+    val id: String,
+    val chargeId: String?,
+    val apartmentId: String?,
+    val garageId: String?,
+    val period: String?,
+    val description: String?,
+    val chargeAmount: Double?,
+    val allocatedAmount: Double?,
+    val remainingDebtAfterPayment: Double?,
+    val propertyLabel: String?,
+)
+
+data class OwnerBalanceDto(
+    val id: String?,
+    val ownerId: String?,
+    val totalDebt: Double?,
+    val totalPaid: Double?,
+    val currentBalance: Double?,
+)
+
+data class PropertyBalanceDto(
+    val propertyId: String?,
+    val totalDebt: Double?,
+    val totalPaid: Double?,
+    val currentBalance: Double?,
+)
+
+data class CompanyBalanceDto(
+    val totalIncome: Double?,
+    val totalExpense: Double?,
+    val currentBalance: Double?,
+)
+
+interface PaymentsApi {
+
+    @retrofit2.http.POST("api/payments/charges/generate")
+    suspend fun generateChargesForPeriod(@retrofit2.http.Body body: ChargeGenerateBody): Envelope<GenerateChargesResultDto>
+
+    @retrofit2.http.POST("api/payments/charges")
+    suspend fun createCharge(@retrofit2.http.Body body: CreateChargeRequestDto): Envelope<String>
+
+    @retrofit2.http.POST("api/payments/charges/{chargeId}/cancel")
+    suspend fun cancelCharge(@retrofit2.http.Path("chargeId") chargeId: String): PaymentMessageDto
+
+    @retrofit2.http.POST("api/payments/payments")
+    suspend fun createPayment(@retrofit2.http.Body body: CreatePaymentRequestDto): Envelope<String>
+
+    @retrofit2.http.GET("api/payments/charges/{chargeId}/allocations")
+    suspend fun chargeAllocations(@retrofit2.http.Path("chargeId") chargeId: String): Envelope<List<ChargeAllocationDto>>
+
+    @retrofit2.http.GET("api/payments/payments/{paymentId}/allocations")
+    suspend fun paymentAllocations(@retrofit2.http.Path("paymentId") paymentId: String): Envelope<List<PaymentAllocationDto>>
+
+    @retrofit2.http.GET("api/payments/balances/owner/{ownerId}")
+    suspend fun ownerBalance(@retrofit2.http.Path("ownerId") ownerId: String): Envelope<OwnerBalanceDto>
+
+    @retrofit2.http.GET("api/payments/balances/property/{propertyId}")
+    suspend fun propertyBalance(@retrofit2.http.Path("propertyId") propertyId: String): Envelope<PropertyBalanceDto>
+
+    @retrofit2.http.GET("api/payments/balances/company")
+    suspend fun companyBalance(): Envelope<CompanyBalanceDto>
+}
+
+object PaymentMethods {
+    const val CASH = 0
+    const val BANK_TRANSFER = 1
+    const val CARD = 2
+}

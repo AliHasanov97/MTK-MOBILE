@@ -14,13 +14,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -34,13 +41,18 @@ import androidx.lifecycle.viewModelScope
 import az.mtk.app.AppGraph
 import az.mtk.app.data.api.ChargeDto
 import az.mtk.app.data.api.ChargeStatus
+import az.mtk.app.data.auth.AuthState
+import az.mtk.app.data.auth.Roles
 import az.mtk.app.ui.components.EmptyState
 import az.mtk.app.ui.components.ErrorState
+import az.mtk.app.ui.components.IconAction
 import az.mtk.app.ui.components.LoadingState
 import az.mtk.app.ui.components.MtkCard
 import az.mtk.app.ui.components.Pager
 import az.mtk.app.ui.components.Pill
+import az.mtk.app.ui.components.PrimaryButton
 import az.mtk.app.ui.components.SearchField
+import az.mtk.app.ui.components.SecondaryButton
 import az.mtk.app.ui.components.SimpleTopBar
 import az.mtk.app.ui.components.Tone
 import az.mtk.app.ui.mtkViewModel
@@ -87,6 +99,22 @@ fun ChargesScreen(
     val state by viewModel.pager.state.collectAsStateWithLifecycle()
     val selectedFilter by viewModel.filter.collectAsStateWithLifecycle()
 
+    val authState by AppGraph.auth.state.collectAsStateWithLifecycle()
+    val profile = (authState as? AuthState.Authenticated)?.profile
+    val canManage = profile?.hasAnyRole(Roles.ADMIN, Roles.BUILDING_MANAGER, Roles.ACCOUNTANT) == true
+    val isAdmin = profile?.hasAnyRole(Roles.ADMIN) == true
+
+    var showGenerate by remember { mutableStateOf(false) }
+    var showPayment by remember { mutableStateOf(false) }
+    var selectedCharge by remember { mutableStateOf<ChargeDto?>(null) }
+    var cancelTarget by remember { mutableStateOf<ChargeDto?>(null) }
+    var banner by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
+
+    fun onActionSuccess(message: String) {
+        banner = message to false
+        viewModel.pager.refresh()
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -125,6 +153,43 @@ fun ChargesScreen(
                     )
                 }
             }
+            if (canManage) {
+                Spacer(Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (isAdmin) {
+                        SecondaryButton(
+                            text = "Dövr üçün hesab yarat",
+                            onClick = { showGenerate = true },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    PrimaryButton(
+                        text = "Ödəniş qəbul et",
+                        onClick = { showPayment = true },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
+
+        banner?.let { (message, isError) ->
+            MtkCard(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                containerColor = if (isError) MtkColors.NegativeBg else MtkColors.PositiveBg,
+                borderColor = (if (isError) MtkColors.Negative else MtkColors.Positive).copy(alpha = 0.3f),
+                padding = 12.dp,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        message,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (isError) MtkColors.Negative else MtkColors.Positive,
+                        modifier = Modifier.weight(1f),
+                    )
+                    IconAction(Icons.Filled.Close, "Bağla") { banner = null }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
         }
 
         when {
@@ -139,7 +204,7 @@ fun ChargesScreen(
                 items(state.items, key = { it.id }) { charge ->
                     val outstanding = ((charge.amount ?: 0.0) - (charge.paidAmount ?: 0.0)).coerceAtLeast(0.0)
                     MtkCard(
-                        onClick = charge.ownerId?.let { ownerId -> { onOpenOwner(ownerId) } },
+                        onClick = { selectedCharge = charge },
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -195,6 +260,20 @@ fun ChargesScreen(
                                 )
                             }
                         }
+                        if (canManage && charge.status != ChargeStatus.PAID && charge.status != ChargeStatus.CANCELLED) {
+                            Spacer(Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End,
+                            ) {
+                                TextButton(
+                                    onClick = { cancelTarget = charge },
+                                    colors = ButtonDefaults.textButtonColors(contentColor = MtkColors.Negative),
+                                ) {
+                                    Text("Ləğv et", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -218,5 +297,49 @@ fun ChargesScreen(
                 }
             }
         }
+    }
+
+    if (showGenerate) {
+        GenerateChargesSheet(
+            onDismiss = { showGenerate = false },
+            onDone = { period ->
+                showGenerate = false
+                onActionSuccess("Dövr üçün hesablar yaradıldı (${Format.period(period)})")
+            },
+        )
+    }
+
+    if (showPayment) {
+        PaymentSheet(
+            onDismiss = { showPayment = false },
+            onDone = { message -> showPayment = false; onActionSuccess(message) },
+        )
+    }
+
+    selectedCharge?.let { charge ->
+        ChargeDetailSheet(
+            charge = charge,
+            canManage = canManage,
+            onDismiss = { selectedCharge = null },
+            onOpenOwner = { ownerId ->
+                selectedCharge = null
+                onOpenOwner(ownerId)
+            },
+            onCancelled = {
+                selectedCharge = null
+                onActionSuccess("Haqq ləğv edildi")
+            },
+        )
+    }
+
+    cancelTarget?.let { charge ->
+        CancelChargeDialog(
+            charge = charge,
+            onDismiss = { cancelTarget = null },
+            onConfirmed = {
+                cancelTarget = null
+                onActionSuccess("Haqq ləğv edildi")
+            },
+        )
     }
 }

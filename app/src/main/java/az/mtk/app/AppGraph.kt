@@ -23,6 +23,8 @@ object AppGraph {
     lateinit var repository: MtkRepository
         private set
 
+    private lateinit var retrofitInstance: Retrofit
+
     fun init(context: Context) {
         appContext = context.applicationContext
         auth = AuthRepository(appContext)
@@ -40,6 +42,15 @@ object AppGraph {
             .addConverterFactory(GsonConverterFactory.create(GsonBuilder().create()))
             .build()
 
+        retrofitInstance = retrofit
+
         repository = MtkRepository(retrofit.create(MtkService::class.java))
     }
+
+    private val serviceCache = java.util.concurrent.ConcurrentHashMap<Class<*>, Any>()
+
+    /** Lazily-created, cached Retrofit service for feature modules. */
+    @Suppress("UNCHECKED_CAST")
+    fun <T : Any> service(clazz: Class<T>): T =
+        serviceCache.getOrPut(clazz) { retrofitInstance.create(clazz) } as T
 }

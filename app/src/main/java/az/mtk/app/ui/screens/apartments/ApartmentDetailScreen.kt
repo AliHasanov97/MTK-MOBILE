@@ -20,6 +20,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
@@ -30,18 +33,27 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import az.mtk.app.AppGraph
 import az.mtk.app.data.api.ApartmentDto
+import az.mtk.app.data.api.AssignOwnerRequest
+import az.mtk.app.data.api.BuildingsApi
 import az.mtk.app.data.api.OwnershipRecordDto
+import az.mtk.app.data.api.TransferApartmentOwnershipRequest
 import az.mtk.app.ui.components.AvatarCircle
+import az.mtk.app.ui.components.ConfirmDialog
 import az.mtk.app.ui.components.EmptyState
 import az.mtk.app.ui.components.ErrorState
 import az.mtk.app.ui.components.InfoRow
 import az.mtk.app.ui.components.KeyValueHeader
 import az.mtk.app.ui.components.LoadingState
 import az.mtk.app.ui.components.MtkCard
+import az.mtk.app.ui.components.MtkModal
 import az.mtk.app.ui.components.Pill
+import az.mtk.app.ui.components.PrimaryButton
+import az.mtk.app.ui.components.SearchableSelect
+import az.mtk.app.ui.components.SecondaryButton
 import az.mtk.app.ui.components.SimpleTopBar
 import az.mtk.app.ui.components.Tone
 import az.mtk.app.ui.mtkViewModel
+import az.mtk.app.ui.screens.buildings.canWriteBuildings
 import az.mtk.app.ui.theme.MtkColors
 import az.mtk.app.util.Format
 import az.mtk.app.util.toUserMessage
@@ -83,6 +95,34 @@ class ApartmentDetailViewModel(private val apartmentId: String) : ViewModel() {
             )
         }
     }
+
+    fun assignOwner(ownerId: String, onDone: () -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            runCatching {
+                AppGraph.service(BuildingsApi::class.java)
+                    .assignOwnerToApartment(apartmentId, AssignOwnerRequest(ownerId))
+            }
+                .onSuccess {
+                    load()
+                    onDone()
+                }
+                .onFailure { onError(it.toUserMessage()) }
+        }
+    }
+
+    fun transferOwnership(newOwnerId: String, onDone: () -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            runCatching {
+                AppGraph.service(BuildingsApi::class.java)
+                    .transferApartmentOwnership(apartmentId, TransferApartmentOwnershipRequest(newOwnerId))
+            }
+                .onSuccess {
+                    load()
+                    onDone()
+                }
+                .onFailure { onError(it.toUserMessage()) }
+        }
+    }
 }
 
 @Composable
@@ -93,6 +133,10 @@ fun ApartmentDetailScreen(
     viewModel: ApartmentDetailViewModel = mtkViewModel { ApartmentDetailViewModel(apartmentId) },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    var showAssignOwner by remember { mutableStateOf(false) }
+    var showTransferOwner by remember { mutableStateOf(false) }
+    var actionError by remember { mutableStateOf<String?>(null) }
+    val canWrite = remember { canWriteBuildings() }
 
     Column(
         modifier = Modifier
@@ -165,6 +209,13 @@ fun ApartmentDetailScreen(
                                     modifier = Modifier.size(20.dp),
                                 )
                             }
+                            if (canWrite) {
+                                Spacer(Modifier.height(10.dp))
+                                SecondaryButton(
+                                    text = "Mülkiyyəti transfer et",
+                                    onClick = { showTransferOwner = true },
+                                )
+                            }
                         }
                     } else {
                         MtkCard {
@@ -173,6 +224,13 @@ fun ApartmentDetailScreen(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MtkColors.Muted,
                             )
+                            if (canWrite) {
+                                Spacer(Modifier.height(10.dp))
+                                PrimaryButton(
+                                    text = "Sahib təyin et",
+                                    onClick = { showAssignOwner = true },
+                                )
+                            }
                         }
                     }
 
@@ -214,5 +272,96 @@ fun ApartmentDetailScreen(
             }
             Spacer(Modifier.height(24.dp))
         }
+    }
+
+    if (showAssignOwner) {
+        OwnerPickModal(
+            title = "Sahib təyin et",
+            subtitle = "Bu mənzil üçün sahib seçin",
+            onDismiss = { showAssignOwner = false },
+            onConfirm = { ownerId, onDone, onError ->
+                viewModel.assignOwner(ownerId, onDone, onError)
+            },
+        )
+    }
+
+    if (showTransferOwner) {
+        OwnerPickModal(
+            title = "Mülkiyyəti transfer et",
+            subtitle = "Yeni sahibi seçin — transfer dərhal qüvvəyə minir",
+            onDismiss = { showTransferOwner = false },
+            onConfirm = { ownerId, onDone, onError ->
+                viewModel.transferOwnership(ownerId, onDone, onError)
+            },
+        )
+    }
+
+    if (actionError != null) {
+        ConfirmDialog(
+            title = "Xəta baş verdi",
+            message = actionError!!,
+            confirmLabel = "Bağla",
+            onDismiss = { actionError = null },
+            onConfirm = { actionError = null },
+        )
+    }
+}
+
+/** Sahib seçimi — mənzilə sahib təyin etmək / mülkiyyəti transfer etmək üçün. */
+@Composable
+private fun OwnerPickModal(
+    title: String,
+    subtitle: String,
+    onDismiss: () -> Unit,
+    onConfirm: (ownerId: String, onDone: () -> Unit, onError: (String) -> Unit) -> Unit,
+) {
+    var selectedId by remember { mutableStateOf<String?>(null) }
+    var selectedName by remember { mutableStateOf<String?>(null) }
+    var submitting by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    MtkModal(
+        title = title,
+        subtitle = subtitle,
+        onDismiss = onDismiss,
+        confirmLabel = "Təsdiqlə",
+        confirmEnabled = selectedId != null && !submitting,
+        confirmLoading = submitting,
+        onConfirm = {
+            submitting = true
+            error = null
+            onConfirm(
+                selectedId!!,
+                { onDismiss() },
+                {
+                    submitting = false
+                    error = it
+                },
+            )
+        },
+    ) {
+        SearchableSelect(
+            label = "Sahib",
+            required = true,
+            selectedLabel = selectedName,
+            searchPlaceholder = "Ad, email və ya telefonla axtar…",
+            onLoad = { query ->
+                AppGraph.repository.owners(page = 0, pageSize = 8, search = query).items
+            },
+            itemLabel = { it.fullName ?: "—" },
+            onSelect = { owner ->
+                selectedId = owner.id
+                selectedName = owner.fullName
+            },
+            onClear = {
+                selectedId = null
+                selectedName = null
+            },
+        )
+        if (error != null) {
+            Spacer(Modifier.height(8.dp))
+            Text(error!!, style = MaterialTheme.typography.bodySmall, color = MtkColors.Negative)
+        }
+        Spacer(Modifier.height(12.dp))
     }
 }

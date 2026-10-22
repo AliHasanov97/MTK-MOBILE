@@ -17,6 +17,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
@@ -26,18 +29,26 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import az.mtk.app.AppGraph
+import az.mtk.app.data.api.BuildingsApi
+import az.mtk.app.data.api.LinkUserRequest
 import az.mtk.app.data.api.OwnerDetailDto
+import az.mtk.app.data.api.SearchUsersBody
 import az.mtk.app.ui.components.AvatarCircle
+import az.mtk.app.ui.components.ConfirmDialog
 import az.mtk.app.ui.components.EmptyState
 import az.mtk.app.ui.components.ErrorState
 import az.mtk.app.ui.components.KeyValueHeader
 import az.mtk.app.ui.components.ListRow
 import az.mtk.app.ui.components.LoadingState
 import az.mtk.app.ui.components.MtkCard
+import az.mtk.app.ui.components.MtkModal
 import az.mtk.app.ui.components.Pill
+import az.mtk.app.ui.components.SearchableSelect
+import az.mtk.app.ui.components.SecondaryButton
 import az.mtk.app.ui.components.SimpleTopBar
 import az.mtk.app.ui.components.Tone
 import az.mtk.app.ui.mtkViewModel
+import az.mtk.app.ui.screens.buildings.canWriteBuildings
 import az.mtk.app.ui.theme.MtkColors
 import az.mtk.app.util.Format
 import az.mtk.app.util.toUserMessage
@@ -68,6 +79,20 @@ class OwnerDetailViewModel(private val ownerId: String) : ViewModel() {
                 .onFailure { _state.value = OwnerDetailState(loading = false, error = it.toUserMessage()) }
         }
     }
+
+    fun linkUser(userId: String, onDone: () -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            runCatching {
+                AppGraph.service(BuildingsApi::class.java)
+                    .linkOwnerToUser(ownerId, LinkUserRequest(userId))
+            }
+                .onSuccess {
+                    load()
+                    onDone()
+                }
+                .onFailure { onError(it.toUserMessage()) }
+        }
+    }
 }
 
 @Composable
@@ -78,6 +103,9 @@ fun OwnerDetailScreen(
     viewModel: OwnerDetailViewModel = mtkViewModel { OwnerDetailViewModel(ownerId) },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    var showLinkUser by remember { mutableStateOf(false) }
+    var actionError by remember { mutableStateOf<String?>(null) }
+    val canWrite = remember { canWriteBuildings() }
 
     Column(
         modifier = Modifier
@@ -123,6 +151,13 @@ fun OwnerDetailScreen(
                             Pill(
                                 if (owner.isActive == false) "Qeyri-aktiv" else "Aktiv",
                                 if (owner.isActive == false) Tone.Neutral else Tone.Success,
+                            )
+                        }
+                        if (canWrite && owner.userId == null) {
+                            Spacer(Modifier.height(10.dp))
+                            SecondaryButton(
+                                text = "İstifadəçi hesabına bağla",
+                                onClick = { showLinkUser = true },
                             )
                         }
                     }
@@ -173,5 +208,89 @@ fun OwnerDetailScreen(
             }
             Spacer(Modifier.height(28.dp))
         }
+    }
+
+    if (showLinkUser) {
+        LinkUserModal(
+            onDismiss = { showLinkUser = false },
+            onConfirm = { userId, onDone, onError ->
+                viewModel.linkUser(userId, onDone, onError)
+            },
+        )
+    }
+
+    if (actionError != null) {
+        ConfirmDialog(
+            title = "Xəta baş verdi",
+            message = actionError!!,
+            confirmLabel = "Bağla",
+            onDismiss = { actionError = null },
+            onConfirm = { actionError = null },
+        )
+    }
+}
+
+/** İstifadəçi hesabına bağlama — identity users axtarışı üzərindən seçim. */
+@Composable
+private fun LinkUserModal(
+    onDismiss: () -> Unit,
+    onConfirm: (userId: String, onDone: () -> Unit, onError: (String) -> Unit) -> Unit,
+) {
+    var selectedId by remember { mutableStateOf<String?>(null) }
+    var selectedName by remember { mutableStateOf<String?>(null) }
+    var submitting by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    MtkModal(
+        title = "İstifadəçi hesabına bağla",
+        subtitle = "Bu sahibi mövcud istifadəçi hesabı ilə əlaqələndirin",
+        onDismiss = onDismiss,
+        confirmLabel = "Bağla",
+        confirmEnabled = selectedId != null && !submitting,
+        confirmLoading = submitting,
+        onConfirm = {
+            submitting = true
+            error = null
+            onConfirm(
+                selectedId!!,
+                { onDismiss() },
+                {
+                    submitting = false
+                    error = it
+                },
+            )
+        },
+    ) {
+        SearchableSelect(
+            label = "İstifadəçi",
+            required = true,
+            selectedLabel = selectedName,
+            searchPlaceholder = "Ad, email və ya telefonla axtar…",
+            onLoad = { query ->
+                AppGraph.service(BuildingsApi::class.java)
+                    .searchUsers(SearchUsersBody(searchTerm = query, pageNumber = 1, pageSize = 8))
+                    .users
+                    .orEmpty()
+            },
+            itemLabel = { user ->
+                listOfNotNull(
+                    listOfNotNull(user.firstName, user.lastName).joinToString(" ").ifBlank { null },
+                    user.email,
+                ).joinToString(" · ")
+            },
+            onSelect = { user ->
+                selectedId = user.id
+                selectedName = listOfNotNull(user.firstName, user.lastName).joinToString(" ").ifBlank { user.email }
+            },
+            onClear = {
+                selectedId = null
+                selectedName = null
+            },
+        )
+        if (error != null) {
+            Spacer(Modifier.height(8.dp))
+            Text(error!!, style = MaterialTheme.typography.bodySmall, color = MtkColors.Negative)
+        }
+        Spacer(Modifier.height(12.dp))
     }
 }

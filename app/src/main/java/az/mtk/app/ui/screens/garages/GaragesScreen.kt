@@ -21,6 +21,9 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
@@ -30,21 +33,32 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import az.mtk.app.AppGraph
+import az.mtk.app.data.api.BuildingsApi
+import az.mtk.app.data.api.CreateGarageRequest
 import az.mtk.app.data.api.GarageDto
 import az.mtk.app.ui.components.EmptyState
 import az.mtk.app.ui.components.ErrorState
 import az.mtk.app.ui.components.LoadingState
 import az.mtk.app.ui.components.MtkCard
+import az.mtk.app.ui.components.MtkModal
+import az.mtk.app.ui.components.MtkOption
+import az.mtk.app.ui.components.MtkSelect
+import az.mtk.app.ui.components.MtkTextField
 import az.mtk.app.ui.components.Pager
 import az.mtk.app.ui.components.Pill
+import az.mtk.app.ui.components.SearchableSelect
 import az.mtk.app.ui.components.SearchField
+import az.mtk.app.ui.components.SecondaryButton
 import az.mtk.app.ui.components.SimpleTopBar
 import az.mtk.app.ui.components.Tone
 import az.mtk.app.ui.mtkViewModel
+import az.mtk.app.ui.screens.buildings.canWriteBuildings
 import az.mtk.app.ui.theme.MtkColors
 import az.mtk.app.util.Format
+import az.mtk.app.util.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 private val typeFilters = listOf(
     "Hamısı" to null,
@@ -66,6 +80,33 @@ class GaragesViewModel : ViewModel() {
         selectedType.value = value
         pager.refresh()
     }
+
+    fun createGarage(
+        garageNumber: String,
+        garageType: String,
+        description: String?,
+        ownerId: String?,
+        onDone: () -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        viewModelScope.launch {
+            runCatching {
+                AppGraph.service(BuildingsApi::class.java).createGarage(
+                    CreateGarageRequest(
+                        ownerId = ownerId,
+                        garageNumber = garageNumber.trim(),
+                        garageType = garageType,
+                        description = description?.trim()?.takeIf { it.isNotEmpty() },
+                    ),
+                )
+            }
+                .onSuccess {
+                    pager.refresh()
+                    onDone()
+                }
+                .onFailure { onError(it.toUserMessage()) }
+        }
+    }
 }
 
 @Composable
@@ -77,6 +118,8 @@ fun GaragesScreen(
 ) {
     val state by viewModel.pager.state.collectAsStateWithLifecycle()
     val selectedType by viewModel.type.collectAsStateWithLifecycle()
+    var showCreate by remember { mutableStateOf(false) }
+    val canWrite = remember { canWriteBuildings() }
 
     Column(
         modifier = Modifier
@@ -97,6 +140,10 @@ fun GaragesScreen(
                 onValueChange = viewModel.pager::onQueryChange,
                 placeholder = "Qaraj nömrəsi və ya sahib",
             )
+            if (canWrite) {
+                Spacer(Modifier.height(10.dp))
+                SecondaryButton(text = "Qaraj yarat", onClick = { showCreate = true })
+            }
             Spacer(Modifier.height(10.dp))
             Row(
                 modifier = Modifier
@@ -181,5 +228,110 @@ fun GaragesScreen(
                 }
             }
         }
+    }
+
+    if (showCreate) {
+        CreateGarageModal(
+            onDismiss = { showCreate = false },
+            onCreate = { number, type, description, ownerId, onDone, onError ->
+                viewModel.createGarage(number, type, description, ownerId, onDone, onError)
+            },
+        )
+    }
+}
+
+private val garageTypeOptions = listOf(
+    MtkOption("OpenParking", "Açıq dayanacaq"),
+    MtkOption("CoveredGarage", "Örtülü qaraj"),
+    MtkOption("Storage", "Anbar yeri"),
+)
+
+/** "Qaraj yarat" modalı — CreateGarageRequest sahələri üzrə. */
+@Composable
+private fun CreateGarageModal(
+    onDismiss: () -> Unit,
+    onCreate: (
+        garageNumber: String,
+        garageType: String,
+        description: String?,
+        ownerId: String?,
+        onDone: () -> Unit,
+        onError: (String) -> Unit,
+    ) -> Unit,
+) {
+    var number by remember { mutableStateOf("") }
+    var type by remember { mutableStateOf("OpenParking") }
+    var description by remember { mutableStateOf("") }
+    var ownerId by remember { mutableStateOf<String?>(null) }
+    var ownerName by remember { mutableStateOf<String?>(null) }
+    var submitting by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    MtkModal(
+        title = "Qaraj yarat",
+        subtitle = "Yeni qarajın məlumatlarını daxil edin",
+        onDismiss = onDismiss,
+        confirmLabel = "Yarat",
+        confirmEnabled = number.isNotBlank() && !submitting,
+        confirmLoading = submitting,
+        onConfirm = {
+            submitting = true
+            error = null
+            onCreate(
+                number,
+                type,
+                description,
+                ownerId,
+                { onDismiss() },
+                {
+                    submitting = false
+                    error = it
+                },
+            )
+        },
+    ) {
+        MtkTextField(
+            value = number,
+            onValueChange = { number = it },
+            label = "Qaraj nömrəsi",
+            required = true,
+        )
+        Spacer(Modifier.height(10.dp))
+        MtkSelect(
+            value = type,
+            onValueChange = { type = it },
+            label = "Növ",
+            required = true,
+            options = garageTypeOptions,
+        )
+        Spacer(Modifier.height(10.dp))
+        MtkTextField(
+            value = description,
+            onValueChange = { description = it },
+            label = "Təsvir",
+        )
+        Spacer(Modifier.height(10.dp))
+        SearchableSelect(
+            label = "Sahib (opsional)",
+            selectedLabel = ownerName,
+            searchPlaceholder = "Ad, email və ya telefonla axtar…",
+            onLoad = { query ->
+                AppGraph.repository.owners(page = 0, pageSize = 8, search = query).items
+            },
+            itemLabel = { it.fullName ?: "—" },
+            onSelect = { owner ->
+                ownerId = owner.id
+                ownerName = owner.fullName
+            },
+            onClear = {
+                ownerId = null
+                ownerName = null
+            },
+        )
+        if (error != null) {
+            Spacer(Modifier.height(8.dp))
+            Text(error!!, style = MaterialTheme.typography.bodySmall, color = MtkColors.Negative)
+        }
+        Spacer(Modifier.height(12.dp))
     }
 }

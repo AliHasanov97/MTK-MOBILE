@@ -27,15 +27,23 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import az.mtk.app.AppGraph
 import az.mtk.app.data.api.ApartmentDto
+import az.mtk.app.data.api.ApartmentTypeDto
 import az.mtk.app.data.api.BuildingDto
+import az.mtk.app.data.api.BuildingsApi
+import az.mtk.app.data.api.CreateApartmentRequest
 import az.mtk.app.ui.components.EmptyState
 import az.mtk.app.ui.components.ErrorState
 import az.mtk.app.ui.components.InfoRow
 import az.mtk.app.ui.components.KeyValueHeader
 import az.mtk.app.ui.components.LoadingState
 import az.mtk.app.ui.components.MtkCard
+import az.mtk.app.ui.components.MtkModal
+import az.mtk.app.ui.components.MtkOption
+import az.mtk.app.ui.components.MtkSelect
+import az.mtk.app.ui.components.MtkTextField
 import az.mtk.app.ui.components.Pill
 import az.mtk.app.ui.components.SearchField
+import az.mtk.app.ui.components.SecondaryButton
 import az.mtk.app.ui.components.SimpleTopBar
 import az.mtk.app.ui.components.Tone
 import az.mtk.app.ui.mtkViewModel
@@ -58,6 +66,9 @@ data class BuildingDetailState(
 class BuildingDetailViewModel(private val buildingId: String) : ViewModel() {
     private val _state = MutableStateFlow(BuildingDetailState())
     val state: StateFlow<BuildingDetailState> = _state.asStateFlow()
+
+    private val _apartmentTypes = MutableStateFlow<List<ApartmentTypeDto>>(emptyList())
+    val apartmentTypes: StateFlow<List<ApartmentTypeDto>> = _apartmentTypes.asStateFlow()
 
     init {
         load()
@@ -82,6 +93,40 @@ class BuildingDetailViewModel(private val buildingId: String) : ViewModel() {
             )
         }
     }
+
+    fun loadApartmentTypes() {
+        viewModelScope.launch {
+            runCatching { AppGraph.service(BuildingsApi::class.java).apartmentTypes(buildingId) }
+                .onSuccess { _apartmentTypes.value = it }
+                .onFailure { _apartmentTypes.value = emptyList() }
+        }
+    }
+
+    fun createApartment(
+        apartmentNumber: String,
+        floor: Int,
+        apartmentTypeId: String,
+        onDone: () -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        viewModelScope.launch {
+            runCatching {
+                AppGraph.service(BuildingsApi::class.java).createApartment(
+                    CreateApartmentRequest(
+                        buildingId = buildingId,
+                        apartmentNumber = apartmentNumber.trim(),
+                        floor = floor,
+                        apartmentTypeId = apartmentTypeId,
+                    ),
+                )
+            }
+                .onSuccess {
+                    load()
+                    onDone()
+                }
+                .onFailure { onError(it.toUserMessage()) }
+        }
+    }
 }
 
 @Composable
@@ -92,7 +137,10 @@ fun BuildingDetailScreen(
     viewModel: BuildingDetailViewModel = mtkViewModel { BuildingDetailViewModel(buildingId) },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val apartmentTypes by viewModel.apartmentTypes.collectAsStateWithLifecycle()
     var query by remember { mutableStateOf("") }
+    var showAddApartment by remember { mutableStateOf(false) }
+    val canWrite = remember { canWriteBuildings() }
 
     val filtered = remember(state.apartments, query) {
         val needle = query.trim().lowercase()
@@ -161,6 +209,13 @@ fun BuildingDetailScreen(
                     }
 
                     KeyValueHeader("Mənzillər")
+                    if (canWrite) {
+                        SecondaryButton(text = "Mənzil əlavə et", onClick = {
+                            viewModel.loadApartmentTypes()
+                            showAddApartment = true
+                        })
+                        Spacer(Modifier.height(10.dp))
+                    }
                     SearchField(
                         value = query,
                         onValueChange = { query = it },
@@ -212,5 +267,103 @@ fun BuildingDetailScreen(
             }
             Spacer(Modifier.height(24.dp))
         }
+    }
+
+    if (showAddApartment) {
+        AddApartmentModal(
+            types = apartmentTypes,
+            onDismiss = { showAddApartment = false },
+            onCreate = { number, floor, typeId, onDone, onError ->
+                viewModel.createApartment(number, floor, typeId, onDone, onError)
+            },
+        )
+    }
+}
+
+/** "Mənzil əlavə et" modalı — CreateApartmentRequest sahələri üzrə. */
+@Composable
+private fun AddApartmentModal(
+    types: List<ApartmentTypeDto>,
+    onDismiss: () -> Unit,
+    onCreate: (
+        apartmentNumber: String,
+        floor: Int,
+        apartmentTypeId: String,
+        onDone: () -> Unit,
+        onError: (String) -> Unit,
+    ) -> Unit,
+) {
+    var number by remember { mutableStateOf("") }
+    var floor by remember { mutableStateOf("") }
+    var typeId by remember { mutableStateOf<String?>(null) }
+    var submitting by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    val parsedFloor = floor.toIntOrNull()
+    MtkModal(
+        title = "Mənzil əlavə et",
+        subtitle = "Yeni mənzilin məlumatlarını daxil edin",
+        onDismiss = onDismiss,
+        confirmLabel = "Əlavə et",
+        confirmEnabled = number.isNotBlank() && parsedFloor != null && typeId != null && !submitting,
+        confirmLoading = submitting,
+        onConfirm = {
+            submitting = true
+            error = null
+            onCreate(
+                number,
+                parsedFloor ?: 0,
+                typeId!!,
+                { onDismiss() },
+                {
+                    submitting = false
+                    error = it
+                },
+            )
+        },
+    ) {
+        MtkTextField(
+            value = number,
+            onValueChange = { number = it },
+            label = "Mənzil nömrəsi",
+            required = true,
+        )
+        Spacer(Modifier.height(10.dp))
+        MtkTextField(
+            value = floor,
+            onValueChange = { floor = it.filter { ch -> ch.isDigit() } },
+            label = "Mərtəbə",
+            placeholder = "0",
+            required = true,
+        )
+        Spacer(Modifier.height(10.dp))
+        if (types.isEmpty()) {
+            Text(
+                "Bu bina üçün mənzil tipi tapılmadı",
+                style = MaterialTheme.typography.bodySmall,
+                color = MtkColors.Warning,
+            )
+        } else {
+            MtkSelect(
+                value = typeId,
+                onValueChange = { typeId = it },
+                label = "Mənzil tipi",
+                required = true,
+                options = types.map { type ->
+                    MtkOption(
+                        value = type.id,
+                        label = listOfNotNull(
+                            type.roomCount?.let { "$it otaq" },
+                            type.areaSquareMeters?.let { Format.area(it) },
+                        ).joinToString(" · ").ifBlank { type.id },
+                    )
+                },
+            )
+        }
+        if (error != null) {
+            Spacer(Modifier.height(8.dp))
+            Text(error!!, style = MaterialTheme.typography.bodySmall, color = MtkColors.Negative)
+        }
+        Spacer(Modifier.height(12.dp))
     }
 }

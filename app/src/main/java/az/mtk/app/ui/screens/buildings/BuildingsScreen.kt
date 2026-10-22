@@ -33,13 +33,20 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import az.mtk.app.AppGraph
 import az.mtk.app.data.api.BuildingDto
+import az.mtk.app.data.api.BuildingsApi
+import az.mtk.app.data.api.CreateBuildingRequest
+import az.mtk.app.data.auth.AuthState
+import az.mtk.app.data.auth.Roles
 import az.mtk.app.ui.components.EmptyState
 import az.mtk.app.ui.components.ErrorState
 import az.mtk.app.ui.components.LoadingState
 import az.mtk.app.ui.components.ModuleIcon
 import az.mtk.app.ui.components.MtkCard
+import az.mtk.app.ui.components.MtkModal
+import az.mtk.app.ui.components.MtkTextField
 import az.mtk.app.ui.components.Pill
 import az.mtk.app.ui.components.SearchField
+import az.mtk.app.ui.components.SecondaryButton
 import az.mtk.app.ui.components.SimpleTopBar
 import az.mtk.app.ui.components.Tone
 import az.mtk.app.ui.mtkViewModel
@@ -49,6 +56,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+
+/** Write actions are only visible to admins and building managers. */
+internal fun canWriteBuildings(): Boolean =
+    (AppGraph.auth.state.value as? AuthState.Authenticated)
+        ?.profile
+        ?.hasAnyRole(Roles.ADMIN, Roles.BUILDING_MANAGER) == true
 
 data class BuildingsState(
     val buildings: List<BuildingDto> = emptyList(),
@@ -72,6 +85,35 @@ class BuildingsViewModel : ViewModel() {
                 .onFailure { _state.value = BuildingsState(loading = false, error = it.toUserMessage()) }
         }
     }
+
+    fun createBuilding(
+        name: String,
+        city: String,
+        street: String,
+        district: String?,
+        description: String?,
+        onDone: () -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        viewModelScope.launch {
+            runCatching {
+                AppGraph.service(BuildingsApi::class.java).createBuilding(
+                    CreateBuildingRequest(
+                        name = name.trim(),
+                        city = city.trim(),
+                        street = street.trim(),
+                        district = district?.trim()?.takeIf { it.isNotEmpty() },
+                        description = description?.trim()?.takeIf { it.isNotEmpty() },
+                    ),
+                )
+            }
+                .onSuccess {
+                    load()
+                    onDone()
+                }
+                .onFailure { onError(it.toUserMessage()) }
+        }
+    }
 }
 
 @Composable
@@ -83,6 +125,8 @@ fun BuildingsScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var query by remember { mutableStateOf("") }
+    var showCreate by remember { mutableStateOf(false) }
+    val canWrite = remember { canWriteBuildings() }
 
     val filtered = remember(state.buildings, query) {
         val needle = query.trim().lowercase()
@@ -117,6 +161,10 @@ fun BuildingsScreen(
                 onValueChange = { query = it },
                 placeholder = "Bina adı və ya ünvan",
             )
+            if (canWrite) {
+                Spacer(Modifier.height(10.dp))
+                SecondaryButton(text = "Bina yarat", onClick = { showCreate = true })
+            }
             Spacer(Modifier.height(14.dp))
 
             when {
@@ -163,5 +211,115 @@ fun BuildingsScreen(
             }
             Spacer(Modifier.height(24.dp))
         }
+    }
+
+    if (showCreate) {
+        CreateBuildingModal(
+            onDismiss = { showCreate = false },
+            onCreate = { name, city, street, district, description, onDone, onError ->
+                viewModel.createBuilding(
+                    name = name,
+                    city = city,
+                    street = street,
+                    district = district,
+                    description = description,
+                    onDone = onDone,
+                    onError = onError,
+                )
+            },
+        )
+    }
+}
+
+/** "Bina yarat" modalı — BuildingsView.tsx form sahələri üzrə. */
+@Composable
+private fun CreateBuildingModal(
+    onDismiss: () -> Unit,
+    onCreate: (
+        name: String,
+        city: String,
+        street: String,
+        district: String?,
+        description: String?,
+        onDone: () -> Unit,
+        onError: (String) -> Unit,
+    ) -> Unit,
+) {
+    var name by remember { mutableStateOf("") }
+    var city by remember { mutableStateOf("") }
+    var street by remember { mutableStateOf("") }
+    var district by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
+    var submitting by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    MtkModal(
+        title = "Bina yarat",
+        subtitle = "Yeni binanın məlumatlarını daxil edin",
+        onDismiss = onDismiss,
+        confirmLabel = "Yarat",
+        confirmEnabled = name.isNotBlank() && city.isNotBlank() && street.isNotBlank() && !submitting,
+        confirmLoading = submitting,
+        onConfirm = {
+            submitting = true
+            error = null
+            onCreate(
+                name,
+                city,
+                street,
+                district,
+                description,
+                { onDismiss() },
+                {
+                    submitting = false
+                    error = it
+                },
+            )
+        },
+    ) {
+        MtkTextField(
+            value = name,
+            onValueChange = { name = it },
+            label = "Bina adı",
+            placeholder = "Məs: A blok",
+            required = true,
+        )
+        Spacer(Modifier.height(10.dp))
+        MtkTextField(
+            value = city,
+            onValueChange = { city = it },
+            label = "Şəhər",
+            required = true,
+        )
+        Spacer(Modifier.height(10.dp))
+        MtkTextField(
+            value = street,
+            onValueChange = { street = it },
+            label = "Küçə",
+            required = true,
+        )
+        Spacer(Modifier.height(10.dp))
+        MtkTextField(
+            value = district,
+            onValueChange = { district = it },
+            label = "Rayon",
+        )
+        Spacer(Modifier.height(10.dp))
+        MtkTextField(
+            value = description,
+            onValueChange = { description = it },
+            label = "Təsvir",
+            singleLine = false,
+            minLines = 3,
+        )
+        if (error != null) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                error!!,
+                style = MaterialTheme.typography.bodySmall,
+                color = MtkColors.Negative,
+            )
+        }
+        Spacer(Modifier.height(12.dp))
     }
 }
