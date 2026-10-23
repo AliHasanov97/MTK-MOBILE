@@ -6,6 +6,7 @@ import az.mtk.app.data.api.MtkRepository
 import az.mtk.app.data.api.MtkService
 import az.mtk.app.data.api.TokenAuthenticator
 import az.mtk.app.data.auth.AuthRepository
+import coil.ImageLoader
 import com.google.gson.GsonBuilder
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
@@ -23,13 +24,19 @@ object AppGraph {
     lateinit var repository: MtkRepository
         private set
 
+    lateinit var imageLoader: ImageLoader
+        private set
+
+    lateinit var httpClient: OkHttpClient
+        private set
+
     private lateinit var retrofitInstance: Retrofit
 
     fun init(context: Context) {
         appContext = context.applicationContext
         auth = AuthRepository(appContext)
 
-        val client = OkHttpClient.Builder()
+        httpClient = OkHttpClient.Builder()
             .connectTimeout(20, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .addInterceptor(AuthInterceptor(auth))
@@ -38,13 +45,17 @@ object AppGraph {
 
         val retrofit = Retrofit.Builder()
             .baseUrl(AppConfig.ApiBaseUrl)
-            .client(client)
+            .client(httpClient)
             .addConverterFactory(GsonConverterFactory.create(GsonBuilder().create()))
             .build()
 
         retrofitInstance = retrofit
 
         repository = MtkRepository(retrofit.create(MtkService::class.java))
+
+        imageLoader = ImageLoader.Builder(appContext)
+            .okHttpClient(httpClient)
+            .build()
     }
 
     private val serviceCache = java.util.concurrent.ConcurrentHashMap<Class<*>, Any>()

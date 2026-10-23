@@ -1,9 +1,7 @@
 package az.mtk.app.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
@@ -13,75 +11,65 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 /**
- * Modern design palette inspired by MTK-UI (app/globals.css)
- * with native mobile Polish, emerald green tones, and soft paper surfaces.
+ * Palette mirrored from MTK-UI's public site (app/globals.css :root): deep
+ * green, lime accent, warm paper and quiet ink — the same tones the web
+ * landing pages and the panel use, so both surfaces read as one product.
  */
 object MtkColors {
-    val Paper = Color(0xFFF7F8F4)
-    val Ink = Color(0xFF14221E)
-    val InkLight = Color(0xFF2C3E37)
-    val Muted = Color(0xFF5E6D66)
-    val MutedSoft = Color(0xFF88968F)
-    val MutedUltraSoft = Color(0xFFB5C0B9)
-
-    val Green = Color(0xFF345C4A)
-    val GreenDark = Color(0xFF234435)
-    val GreenLight = Color(0xFF45745E)
+    // Primary colors — site green
+    val Primary = Color(0xFF345C4A)
+    val PrimaryDark = Color(0xFF263E34)
+    val PrimaryLight = Color(0xFF64804E)
     val Lime = Color(0xFFC9E3A1)
-    val LimeDark = Color(0xFF8FA967)
 
-    val Line = Color(0xFFE4E8DF)
-    val LineSoft = Color(0xFFEDF0E9)
-    val White = Color(0xFFFFFFFF)
-    val Soft = Color(0xFFF1F3ED)
+    // Background colors
+    val Background = Color(0xFFF7F8F4)
+    val Surface = Color(0xFFFFFFFF)
+    val SurfaceVariant = Color(0xFFEEF1E9)
 
-    val Positive = Color(0xFF437A3B)
-    val PositiveBg = Color(0xFFEAF5E4)
-    val Negative = Color(0xFFC0392B)
-    val NegativeBg = Color(0xFFFDECEB)
-    val Warning = Color(0xFFC27803)
-    val WarningBg = Color(0xFFFEF4E3)
-    val Info = Color(0xFF2563EB)
-    val InfoBg = Color(0xFFEEF4FF)
+    // Text colors
+    val TextPrimary = Color(0xFF162522)
+    val TextSecondary = Color(0xFF64716C)
+    val TextTertiary = Color(0xFF838D86)
 
-    val IconBoxBg = Color(0xFFEDF3E8)
-    val IconBoxTint = Color(0xFF2F5443)
+    // Border and divider
+    val Border = Color(0xFFE5E9E1)
+    val Divider = Color(0xFFF0F2EC)
+
+    // Status colors — muted, like the panel's balance tags
+    val Success = Color(0xFF4C7A38)
+    val SuccessBg = Color(0xFFEEF6E6)
+    val Error = Color(0xFFA24A4A)
+    val ErrorBg = Color(0xFFFBF2F2)
+    val Warning = Color(0xFF8A6A2E)
+    val WarningBg = Color(0xFFFBF4E6)
+    val Info = Color(0xFF526354)
+    val InfoBg = Color(0xFFEEF1E9)
+
+    // Icon and accent colors
+    val IconPrimary = Color(0xFF345C4A)
+    val IconSecondary = Color(0xFF64716C)
+    val AccentOrange = Color(0xFF64804E)
+    val AccentGreen = Color(0xFF8EAF67)
+    val AccentBlue = Color(0xFF526354)
 }
 
 private val LightColors = lightColorScheme(
-    primary = MtkColors.Green,
+    primary = MtkColors.Primary,
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFE8F2E4),
-    onPrimaryContainer = MtkColors.GreenDark,
-    secondary = MtkColors.Lime,
-    onSecondary = MtkColors.GreenDark,
-    background = MtkColors.Paper,
-    onBackground = MtkColors.Ink,
-    surface = MtkColors.White,
-    onSurface = MtkColors.Ink,
-    surfaceVariant = MtkColors.Soft,
-    onSurfaceVariant = MtkColors.Muted,
-    outline = MtkColors.Line,
-    outlineVariant = MtkColors.LineSoft,
-    error = MtkColors.Negative,
-)
-
-private val DarkColors = darkColorScheme(
-    primary = MtkColors.Lime,
-    onPrimary = MtkColors.GreenDark,
-    primaryContainer = Color(0xFF223E30),
-    onPrimaryContainer = MtkColors.Lime,
-    secondary = MtkColors.Lime,
-    onSecondary = MtkColors.GreenDark,
-    background = Color(0xFF101915),
-    onBackground = Color(0xFFEDF3ED),
-    surface = Color(0xFF16231E),
-    onSurface = Color(0xFFEDF3ED),
-    surfaceVariant = Color(0xFF1D2C25),
-    onSurfaceVariant = Color(0xFFB0BFB7),
-    outline = Color(0xFF293B32),
-    outlineVariant = Color(0xFF223129),
-    error = Color(0xFFE58787),
+    primaryContainer = MtkColors.SurfaceVariant,
+    onPrimaryContainer = MtkColors.Primary,
+    secondary = MtkColors.PrimaryLight,
+    onSecondary = Color.White,
+    background = MtkColors.Background,
+    onBackground = MtkColors.TextPrimary,
+    surface = MtkColors.Surface,
+    onSurface = MtkColors.TextPrimary,
+    surfaceVariant = MtkColors.SurfaceVariant,
+    onSurfaceVariant = MtkColors.TextSecondary,
+    outline = MtkColors.Border,
+    outlineVariant = MtkColors.Divider,
+    error = MtkColors.Error,
 )
 
 private val MtkTypography = Typography(
@@ -100,9 +88,9 @@ private val MtkTypography = Typography(
 )
 
 @Composable
-fun MtkTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
+fun MtkTheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = if (darkTheme) DarkColors else LightColors,
+        colorScheme = LightColors,
         typography = MtkTypography,
         content = content,
     )

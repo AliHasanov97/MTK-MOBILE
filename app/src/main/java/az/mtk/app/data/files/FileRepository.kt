@@ -27,10 +27,6 @@ import java.time.format.DateTimeFormatter
  */
 object FileRepository {
 
-    private val client: OkHttpClient by lazy {
-        OkHttpClient.Builder().build()
-    }
-
     data class DownloadResult(val fileName: String, val file: File)
 
     suspend fun download(
@@ -38,22 +34,24 @@ object FileRepository {
         method: String = "GET",
         body: String? = null,
     ): DownloadResult = withContext(Dispatchers.IO) {
-        val token = AppGraph.auth.currentAccessToken()
         val url = AppConfig.ApiBaseUrl.removeSuffix("/") + "/" + path.removePrefix("/")
         val mediaType = "application/json; charset=utf-8".toMediaType()
         val request = Request.Builder()
             .url(url)
             .apply {
-                if (token != null) header("Authorization", "Bearer $token")
                 if (method.equals("POST", ignoreCase = true)) {
                     post((body ?: "{}").toRequestBody(mediaType))
                 }
             }
             .build()
 
-        client.newCall(request).execute().use { response ->
+        android.util.Log.d("FileRepository", "Downloading from: $url")
+        AppGraph.httpClient.newCall(request).execute().use { response ->
+            android.util.Log.d("FileRepository", "Response: ${response.code} ${response.message}")
             if (!response.isSuccessful) {
-                throw az.mtk.app.data.api.ApiException("Fayl hazırlanmadı (${response.code}).")
+                val errorBody = response.body?.string() ?: "No error details"
+                android.util.Log.e("FileRepository", "Download failed: ${response.code} - $errorBody")
+                throw az.mtk.app.data.api.ApiException("Fayl yüklənmədi (${response.code}): ${response.message}", response.code)
             }
             val fileName = resolveFileName(
                 response.header("Content-Disposition"),

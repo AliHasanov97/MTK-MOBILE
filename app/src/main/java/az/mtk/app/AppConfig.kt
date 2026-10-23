@@ -24,4 +24,7 @@ object AppConfig {
     const val AuthorizationEndpoint = "$OidcIssuer/protocol/openid-connect/auth"
     const val TokenEndpoint = "$OidcIssuer/protocol/openid-connect/token"
     const val EndSessionEndpoint = "$OidcIssuer/protocol/openid-connect/logout"
+
+    /** Keycloak account console (MTK-UI opens the same URL from its user menu). */
+    const val AccountEndpoint = "$OidcIssuer/account"
 }

@@ -11,11 +11,15 @@ class AuthInterceptor(private val auth: AuthRepository) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val token = auth.currentAccessToken()
         val request = if (token != null) {
+            android.util.Log.d("AuthInterceptor", "Adding Bearer token to request: ${chain.request().url}")
             chain.request().newBuilder().header("Authorization", "Bearer $token").build()
         } else {
+            android.util.Log.d("AuthInterceptor", "No token available for request: ${chain.request().url}")
             chain.request()
         }
-        return chain.proceed(request)
+        val response = chain.proceed(request)
+        android.util.Log.d("AuthInterceptor", "Response ${response.code} for ${request.url}")
+        return response
     }
 }
 

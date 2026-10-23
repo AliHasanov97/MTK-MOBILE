@@ -69,11 +69,14 @@ data class ArtCreateArticleResponse(val id: String?)
 
 interface ArticlesApi {
 
+    @retrofit2.http.GET("api/communications/articles/latest")
+    suspend fun latestArticles(@retrofit2.http.Query("count") count: Int = 5): Envelope<List<ArtArticle>>
+
     @retrofit2.http.POST("api/communications/articles/search")
     suspend fun searchArticles(@retrofit2.http.Body body: SearchBody): Envelope<ArtArticlesPage>
 
     @retrofit2.http.GET("api/communications/articles/{id}")
-    suspend fun article(@retrofit2.http.Path("id") id: String): ArtArticle
+    suspend fun article(@retrofit2.http.Path("id") id: String): Envelope<ArtArticle>
 
     @retrofit2.http.POST("api/communications/articles")
     suspend fun createArticle(@retrofit2.http.Body body: ArtArticleInput): Envelope<ArtCreateArticleResponse>
