@@ -15,6 +15,26 @@ import retrofit2.http.Path
  */
 interface BuildingsApi {
 
+    // ---- Search (buildings.ts) ----
+
+    @POST("api/buildings/apartments/search")
+    suspend fun searchApartments(@Body body: SearchApartmentsRequest): Envelope<SearchApartmentsResult>
+
+    @POST("api/buildings/garages/search")
+    suspend fun searchGarages(@Body body: SearchGaragesRequest): Envelope<SearchGaragesResult>
+
+    @GET("api/buildings/apartments/{id}")
+    suspend fun getApartmentById(@Path("id") id: String): ApartmentDto
+
+    @GET("api/buildings/garages/{id}")
+    suspend fun getGarageById(@Path("id") id: String): Envelope<GarageDto>
+
+    @GET("api/buildings/buildings/{id}")
+    suspend fun getBuildingById(@Path("id") id: String): BuildingDto
+
+    @GET("api/buildings/owners/{id}")
+    suspend fun getOwnerById(@Path("id") id: String): OwnerDetailDto
+
     // ---- Buildings (buildings.ts) ----
 
     @POST("api/buildings/buildings")
@@ -84,6 +104,11 @@ interface BuildingsApi {
 
     @POST("api/identity/users/search")
     suspend fun searchUsers(@Body body: SearchUsersBody): SearchUsersResult
+
+    // ---- Ownership history ----
+
+    @GET("api/buildings/apartments/{apartmentId}/ownership-history")
+    suspend fun getOwnershipHistory(@Path("apartmentId") apartmentId: String): List<OwnershipRecordDto>
 }
 
 // ---- Request/response DTOs (camelCase JSON, nullable except ids) ----
@@ -183,3 +208,12 @@ data class UserSummaryDto(
     val phoneNumber: String?,
     val status: String?,
 )
+
+// ---- Search apartments/garages ----
+// Use SearchBody, QueryFilter, SortCriteria from SearchBody.kt
+// Use ApartmentDto, GarageDto from Dtos.kt
+
+typealias SearchApartmentsRequest = SearchBody
+typealias SearchGaragesRequest = SearchBody
+typealias SearchApartmentsResult = SearchPage<ApartmentDto>
+typealias SearchGaragesResult = SearchPage<GarageDto>

@@ -193,11 +193,35 @@ class DashboardViewModel : ViewModel() {
     }
 }
 
-private enum class DockItem(val label: String, val icon: ImageVector) {
-    HOME("Ana Səhifə", Icons.Default.Home),
-    MODULES("Xidmətlər", Icons.Default.Apps),
-    PAYMENTS("Ödənişlər", Icons.Default.Payments),
-    CONTACT("Əlaqə", Icons.Default.Phone),
+private enum class DockItem(
+    val key: String,
+    val label: String,
+    val icon: ImageVector,
+    val roles: List<String> = emptyList(),
+) {
+    HOME("home", "Ana Səhifə", Icons.Default.Home),
+
+    // Owner (sakin) əməliyyatları
+    MAKE_PAYMENT("make_payment", "Ödəniş et", Icons.Default.Payments, listOf(Roles.OWNER)),
+    CREATE_APPEAL("create_appeal", "Müraciət", Icons.Default.SupportAgent, listOf(Roles.OWNER)),
+    VIEW_PROFILE("view_profile", "Profil", Icons.Default.Person, listOf(Roles.OWNER)),
+
+    // Accountant (mühasib) əməliyyatları
+    RECEIVE_PAYMENT("receive_payment", "Ödəniş qəbul", Icons.Default.Paid, listOf(Roles.ACCOUNTANT)),
+    RECORD_EXPENSE("record_expense", "Xərc qeyd et", Icons.AutoMirrored.Filled.ReceiptLong, listOf(Roles.ACCOUNTANT)),
+    VIEW_REPORTS("view_reports", "Hesabat", Icons.Default.Analytics, listOf(Roles.ACCOUNTANT)),
+
+    // Building Manager (komandant) əməliyyatları
+    MANAGE_APPEALS("manage_appeals", "Müraciətlər", Icons.Default.SupportAgent, listOf(Roles.BUILDING_MANAGER)),
+    MANAGE_STAFF("manage_staff", "İşçilər", Icons.Default.Badge, listOf(Roles.BUILDING_MANAGER)),
+    MANAGE_BUILDINGS("manage_buildings", "Binalar", Icons.Default.Apartment, listOf(Roles.BUILDING_MANAGER)),
+
+    // Admin əməliyyatları
+    MANAGE_USERS("manage_users", "İstifadəçilər", Icons.Default.ManageAccounts, listOf(Roles.ADMIN)),
+    VIEW_AUDIT("view_audit", "Audit", Icons.Default.VerifiedUser, listOf(Roles.ADMIN)),
+    SYSTEM_SETTINGS("system_settings", "Sistem", Icons.Default.Settings, listOf(Roles.ADMIN)),
+
+    CONTACT("contact", "Əlaqə", Icons.Default.Phone),
 }
 
 /** Signed-in overview in the Civic Hearth language, filled with our panel data. */
@@ -207,6 +231,7 @@ fun DashboardScreen(
     onBack: () -> Unit,
     onLogout: () -> Unit,
     onOpenContact: () -> Unit,
+    onOpenProperties: () -> Unit = {},
     viewModel: DashboardViewModel = mtkViewModel { DashboardViewModel() },
 ) {
     val uiState by viewModel.state.collectAsStateWithLifecycle()
@@ -241,11 +266,23 @@ fun DashboardScreen(
         }
     }
 
-    val activeDock = when {
-        scrollState.value < (modulesAnchor.value - 80f) -> DockItem.HOME
-        scrollState.value < (paymentsAnchor.value - 80f) -> DockItem.MODULES
-        else -> DockItem.PAYMENTS
+    // Filter dock items by user's roles: always HOME + 3 role-specific actions + CONTACT
+    val dockItems = remember(profile.roles) {
+        buildList {
+            add(DockItem.HOME)
+
+            // Add role-specific actions (maximum 3)
+            val roleActions = DockItem.entries.filter { item ->
+                item != DockItem.HOME && item != DockItem.CONTACT &&
+                item.roles.isNotEmpty() && item.roles.any { it in profile.roles }
+            }.take(3)
+
+            addAll(roleActions)
+            add(DockItem.CONTACT)
+        }
     }
+
+    val activeDock = dockItems.firstOrNull() ?: DockItem.HOME
 
     Scaffold(
         containerColor = Civic.Background,
@@ -287,10 +324,13 @@ fun DashboardScreen(
                     ModuleGrid(
                         modules = modulesForRoles(profile.roles),
                         onModuleClick = { module ->
-                            scope.launch {
-                                snackbarHostState.showSnackbar(
-                                    "«${module.label}» modulu mobil tətbiqdə hələ hazırlanmayıb."
-                                )
+                            when (module.key) {
+                                "buildings" -> onOpenProperties()
+                                else -> scope.launch {
+                                    snackbarHostState.showSnackbar(
+                                        "«${module.label}» modulu mobil tətbiqdə hələ hazırlanmayıb."
+                                    )
+                                }
                             }
                         },
                     )
@@ -342,26 +382,25 @@ fun DashboardScreen(
             }
 
             DashboardDock(
+                items = dockItems,
                 active = activeDock,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()
                     .padding(horizontal = 16.dp, vertical = 10.dp),
                 onSelect = { item ->
-                    when (item) {
-                        DockItem.HOME -> scope.launch { scrollState.animateScrollTo(0) }
-                        DockItem.MODULES -> scope.launch {
-                            scrollState.animateScrollTo(modulesAnchor.value.toInt().coerceAtLeast(0))
-                        }
-                        DockItem.PAYMENTS -> scope.launch {
-                            val target = if (paymentsAnchor.value > 0f) {
-                                paymentsAnchor.value.toInt()
-                            } else {
-                                scrollState.maxValue
+                    when (item.key) {
+                        "home" -> scope.launch { scrollState.animateScrollTo(0) }
+                        "contact" -> onOpenContact()
+                        "manage_buildings" -> onOpenProperties()
+                        else -> {
+                            // Show "not implemented yet" message for other actions
+                            scope.launch {
+                                snackbarHostState.showSnackbar(
+                                    "«${item.label}» əməliyyatı mobil tətbiqdə hələ hazırlanmayıb."
+                                )
                             }
-                            scrollState.animateScrollTo(target.coerceAtLeast(0))
                         }
-                        DockItem.CONTACT -> onOpenContact()
                     }
                 },
             )
@@ -694,6 +733,7 @@ private fun HeroIconButton(icon: ImageVector, description: String, onClick: () -
 
 @Composable
 private fun DashboardDock(
+    items: List<DockItem>,
     active: DockItem,
     onSelect: (DockItem) -> Unit,
     modifier: Modifier = Modifier,
@@ -708,14 +748,15 @@ private fun DashboardDock(
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        DockItem.entries.forEach { item ->
+        items.forEach { item ->
             val selected = item == active
             Column(
                 modifier = Modifier
+                    .weight(1f)
                     .clip(RoundedCornerShape(16.dp))
                     .background(if (selected) Civic.Container else Color.Transparent)
                     .clickable { onSelect(item) }
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(3.dp),
             ) {
@@ -723,14 +764,15 @@ private fun DashboardDock(
                     imageVector = item.icon,
                     contentDescription = item.label,
                     tint = if (selected) Civic.Terracotta else Civic.MutedSoft,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(22.dp),
                 )
                 Text(
                     text = item.label,
-                    fontSize = 10.sp,
+                    fontSize = 9.sp,
                     fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                     color = if (selected) Civic.Terracotta else Civic.MutedSoft,
                     maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }

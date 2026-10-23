@@ -17,17 +17,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             MtkTheme {
-                az.mtk.app.ui.screens.dashboard.DashboardScreen(
-                    profile = az.mtk.app.data.auth.UserProfile(
-                        displayName = "Əli Həsənov",
-                        username = "ali",
-                        email = "ali@example.com",
-                        roles = listOf("building-manager"),
-                    ),
-                    onBack = {},
-                    onLogout = {},
-                    onOpenContact = {},
-                )
+                MtkApp()
             }
         }
         handleDeepLink(intent)

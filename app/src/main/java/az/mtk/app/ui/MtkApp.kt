@@ -16,6 +16,9 @@ import az.mtk.app.ui.navigation.LandingRoutes
 import az.mtk.app.ui.navigation.LandingTopBar
 import az.mtk.app.ui.screens.dashboard.DashboardScreen
 import az.mtk.app.ui.screens.landing.*
+import az.mtk.app.ui.screens.properties.PropertiesScreen
+import az.mtk.app.ui.screens.properties.PropertyDetailScreen
+import az.mtk.app.ui.screens.properties.PropertyType
 import kotlinx.coroutines.launch
 
 @Composable
@@ -24,6 +27,9 @@ fun MtkApp() {
     var selectedGuideSlug by remember { mutableStateOf<String?>(null) }
     var selectedArticleId by remember { mutableStateOf<String?>(null) }
     var showLogin by remember { mutableStateOf(false) }
+    var showProperties by remember { mutableStateOf(false) }
+    var selectedPropertyId by remember { mutableStateOf<String?>(null) }
+    var selectedPropertyType by remember { mutableStateOf<PropertyType?>(null) }
     var companyName by remember { mutableStateOf("MTK") }
 
     val repository = remember { LandingRepository() }
@@ -34,9 +40,17 @@ fun MtkApp() {
     val authenticated = authState as? AuthState.Authenticated
 
     // System back from the login screen or the dashboard returns to the site.
-    BackHandler(enabled = showLogin) {
-        if (authenticated == null) auth.cancelLogin()
+    BackHandler(enabled = showLogin && authenticated == null) {
+        auth.cancelLogin()
         showLogin = false
+    }
+
+    // Separate handler for dashboard back navigation
+    BackHandler(enabled = showLogin && authenticated != null) {
+        showLogin = false
+        selectedGuideSlug = null
+        selectedArticleId = null
+        currentRoute = LandingRoutes.HOME
     }
 
     // Load company name on startup
@@ -62,18 +76,55 @@ fun MtkApp() {
             }
         }
     ) { paddingValues ->
-        if (showLogin && authenticated != null) {
+        if (selectedPropertyId != null && selectedPropertyType != null && authenticated != null) {
+            // Property detail screen - use key() to force recreation when ID changes
+            key(selectedPropertyId, selectedPropertyType) {
+                PropertyDetailScreen(
+                    propertyId = selectedPropertyId!!,
+                    propertyType = selectedPropertyType!!,
+                    onBack = {
+                        selectedPropertyId = null
+                        selectedPropertyType = null
+                    },
+                )
+            }
+        } else if (showProperties && authenticated != null) {
+            // Properties (Əmlak Fondu) screen
+            PropertiesScreen(
+                onBack = { showProperties = false },
+                onPropertyClick = { propertyId, propertyType ->
+                    println("🔗 MtkApp: Opening property detail - ID=$propertyId, type=$propertyType")
+                    selectedPropertyId = propertyId
+                    selectedPropertyType = propertyType
+                },
+            )
+        } else if (showLogin && authenticated != null) {
             // Full-screen: the dashboard draws its own status-bar background.
             DashboardScreen(
                 profile = authenticated.profile,
-                onBack = { showLogin = false },
-                onLogout = {
-                    auth.logout()
+                onBack = {
                     showLogin = false
+                    selectedGuideSlug = null
+                    selectedArticleId = null
+                    currentRoute = LandingRoutes.HOME
+                },
+                onLogout = {
+                    scope.launch {
+                        auth.logout()
+                    }
+                    showLogin = false
+                    selectedGuideSlug = null
+                    selectedArticleId = null
+                    currentRoute = LandingRoutes.HOME
                 },
                 onOpenContact = {
                     showLogin = false
+                    selectedGuideSlug = null
+                    selectedArticleId = null
                     currentRoute = LandingRoutes.CONTACT
+                },
+                onOpenProperties = {
+                    showProperties = true
                 },
             )
         } else {
@@ -88,6 +139,9 @@ fun MtkApp() {
                         onBack = {
                             auth.cancelLogin()
                             showLogin = false
+                            selectedGuideSlug = null
+                            selectedArticleId = null
+                            currentRoute = LandingRoutes.HOME
                         },
                         message = (authState as? AuthState.Unauthenticated)?.message,
                         loading = authState is AuthState.Loading,

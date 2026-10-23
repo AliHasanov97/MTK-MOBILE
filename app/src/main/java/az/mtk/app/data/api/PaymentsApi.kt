@@ -84,6 +84,21 @@ data class CompanyBalanceDto(
     val currentBalance: Double?,
 )
 
+data class PaymentDto(
+    val id: String,
+    val ownerId: String?,
+    val ownerName: String?,
+    val amount: Double?,
+    val paymentMethod: Int?,
+    val paymentDate: String?,
+    val notes: String?,
+    val apartmentId: String?,
+    val garageId: String?,
+    val status: Int?,
+)
+
+
+
 interface PaymentsApi {
 
     @retrofit2.http.POST("api/payments/charges/generate")
@@ -112,6 +127,18 @@ interface PaymentsApi {
 
     @retrofit2.http.GET("api/payments/balances/company")
     suspend fun companyBalance(): Envelope<CompanyBalanceDto>
+
+    @retrofit2.http.GET("api/payments/charges/owner/{ownerId}")
+    suspend fun getChargesByOwner(@retrofit2.http.Path("ownerId") ownerId: String): Envelope<ChargesPage>
+
+    @retrofit2.http.GET("api/payments/payments/property/{propertyId}")
+    suspend fun getPaymentsByProperty(@retrofit2.http.Path("propertyId") propertyId: String): Envelope<List<PaymentDto>>
+
+    @retrofit2.http.GET("api/payments/payments/owner/{ownerId}")
+    suspend fun getPaymentsByOwner(@retrofit2.http.Path("ownerId") ownerId: String): Envelope<List<PaymentDto>>
+
+    @retrofit2.http.GET("api/payments/charges/owner/{ownerId}")
+    suspend fun getChargesPage(@retrofit2.http.Path("ownerId") ownerId: String): Envelope<ChargesPage>
 }
 
 object PaymentMethods {
