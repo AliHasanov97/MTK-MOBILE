@@ -245,7 +245,10 @@ internal fun FinanceSectionScreen(
                 FinanceSection.EXPENSES -> ExpensesSection(state, viewModel, canManage)
                 FinanceSection.INCOMES -> IncomesSection(state, viewModel, canManage)
                 FinanceSection.RATES -> RatesSection(state, viewModel, canManage)
-                FinanceSection.PURCHASES -> PurchasesSection(state, viewModel)
+                FinanceSection.PURCHASES -> PurchasesSection(
+                    canManage = canManage,
+                    canDownload = canPay || canManage,
+                )
                 FinanceSection.PAYROLL -> PayrollSection(state, viewModel, canManage)
                 FinanceSection.VACATION -> VacationSection(state, viewModel, canManage)
             }
@@ -1031,157 +1034,6 @@ private fun RateSheet(
             enabled = amount.isNotBlank() && effectiveFrom.isNotBlank(),
         )
     }
-}
-
-/* ====================================================================== */
-/* Satınalmalar                                                           */
-/* ====================================================================== */
-
-@Composable
-private fun PurchasesSection(
-    state: FinanceViewModel.UiState,
-    viewModel: FinanceViewModel,
-) {
-    var detail by remember { mutableStateOf<InvPurchaseResponse?>(null) }
-
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        item {
-            OpsCard {
-                Text("Satınalmalar", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = OpsColors.Ink)
-                Text(
-                    "Mal qəbulu qaimələri. Yeni qaimə yaratmaq üçün İnventar → Daxilolmalar bölməsindən istifadə edin.",
-                    fontSize = 12.sp,
-                    color = OpsColors.Muted,
-                )
-            }
-        }
-
-        when {
-            state.purchasesLoading && state.purchases.isEmpty() -> item { OpsLoading() }
-            state.purchasesError != null && state.purchases.isEmpty() ->
-                item { OpsError(state.purchasesError!!) { viewModel.loadPurchases() } }
-            state.purchases.isEmpty() -> item {
-                OpsCard { Text("Satınalma yoxdur.", fontSize = 12.sp, color = OpsColors.MutedSoft) }
-            }
-            else -> items(state.purchases, key = { it.id }) { purchase ->
-                PurchaseCard(purchase) { detail = purchase }
-            }
-        }
-    }
-
-    detail?.let { purchase ->
-        PurchaseDetailDialog(purchase) { detail = null }
-    }
-}
-
-@Composable
-private fun PurchaseCard(purchase: InvPurchaseResponse, onClick: () -> Unit) {
-    OpsCard(onClick = onClick) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Top,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    purchase.vendorName ?: "Tədarükçü",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = OpsColors.Ink,
-                )
-                Text(
-                    listOfNotNull(
-                        Format.date(purchase.purchaseDate),
-                        purchase.invoiceNumber?.takeIf { it.isNotBlank() }?.let { "Qaimə $it" },
-                    ).joinToString(" · "),
-                    fontSize = 11.sp,
-                    color = OpsColors.MutedSoft,
-                )
-                if (!purchase.note.isNullOrBlank()) {
-                    Text(purchase.note, fontSize = 11.sp, color = OpsColors.Muted)
-                }
-            }
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    Format.money(purchase.totalAmount),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = OpsColors.Ink,
-                )
-                OpsChip(
-                    text = InvEnums.purchaseStatusLabel(purchase.status),
-                    foreground = when (purchase.status) {
-                        InvEnums.PURCHASE_RECEIVED -> OpsColors.Olive
-                        InvEnums.PURCHASE_CANCELLED -> OpsColors.MutedSoft
-                        else -> OpsColors.Amber
-                    },
-                    background = when (purchase.status) {
-                        InvEnums.PURCHASE_RECEIVED -> OpsColors.OliveSoft
-                        InvEnums.PURCHASE_CANCELLED -> OpsColors.Subtle
-                        else -> OpsColors.AmberSoft
-                    },
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun PurchaseDetailDialog(purchase: InvPurchaseResponse, onDismiss: () -> Unit) {
-    AppSheetDialog(
-        onDismissRequest = onDismiss,
-        scrollable = true,
-        title = {
-            Text(
-                purchase.invoiceNumber ?: "Satınalma",
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Bold,
-                color = OpsColors.Ink,
-            )
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                OpsInfoRow("Tədarükçü", purchase.vendorName ?: "—")
-                OpsInfoRow("Tarix", Format.date(purchase.purchaseDate))
-                OpsInfoRow("Status", InvEnums.purchaseStatusLabel(purchase.status))
-                OpsInfoRow("Cəm", Format.money(purchase.totalAmount), OpsColors.Terracotta)
-                HorizontalDivider(
-                    modifier = Modifier.padding(vertical = 6.dp),
-                    color = OpsColors.Border,
-                )
-                val lines = purchase.lines.orEmpty()
-                if (lines.isEmpty()) {
-                    Text("Sətir məlumatı yoxdur.", fontSize = 12.sp, color = OpsColors.MutedSoft)
-                } else {
-                    lines.forEach { line ->
-                        Column {
-                            Text(
-                                line.nomenclatureName ?: line.nomenclatureCode ?: "Material",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = OpsColors.Ink,
-                            )
-                            Text(
-                                "${Format.number(line.quantity)} × ${Format.money(line.unitPrice)} = ${Format.money(line.lineTotal)}",
-                                fontSize = 11.sp,
-                                color = OpsColors.MutedSoft,
-                            )
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Bağla", color = OpsColors.Terracotta, fontWeight = FontWeight.Bold)
-            }
-        },
-        containerColor = OpsColors.Surface,
-    )
 }
 
 /* ====================================================================== */

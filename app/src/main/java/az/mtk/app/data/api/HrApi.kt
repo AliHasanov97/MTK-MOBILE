@@ -38,7 +38,8 @@ data class HrJobDto(
 data class HrInstitutionDto(
     val id: String,
     val name: String,
-    val type: Int? = null,
+    /** Backend `Type` enum-unu mətn kimi qaytarır: "Ali" / "Kollec". */
+    val type: String? = null,
 )
 
 data class HrLaborCodeCaseDto(
@@ -355,6 +356,131 @@ data class HrFileAttachmentDto(
     val documentType: Int? = null,
 )
 
+// ---- Siyahı DTO-ları ---------------------------------------------------------
+
+data class HrEmployeeListItemDto(
+    val id: String,
+    val registerNumber: Int? = null,
+    val name: String? = null,
+    val surname: String? = null,
+    val fathersName: String? = null,
+    val gender: Int? = null,
+    val birthDate: String? = null,
+    val age: Int? = null,
+    val finCode: String? = null,
+    val phoneNumber: String? = null,
+    val email: String? = null,
+    val education: Int? = null,
+    val maritalStatus: Int? = null,
+    val startWorkDate: String? = null,
+    val job: NamedRef? = null,
+    val isActive: Int? = null,
+    val employmentType: Int? = null,
+    val createdAt: String? = null,
+)
+
+data class HrVacationPayDto(
+    val id: String,
+    val vacationOrderId: String? = null,
+    val employeeId: String? = null,
+    val employeeFullName: String? = null,
+    val averageMonthlyWage: Double? = null,
+    val averageDailyWage: Double? = null,
+    val vacationDays: Double? = null,
+    val totalAmount: Double? = null,
+    val vacationStartDate: String? = null,
+    val vacationEndDate: String? = null,
+    val status: Int? = null,
+    val dueDate: String? = null,
+    val paidAt: String? = null,
+    val paymentMethod: Int? = null,
+    val createdAt: String? = null,
+)
+
+data class HrPayslipDto(
+    val payrollRunId: String? = null,
+    val year: Int? = null,
+    val month: Int? = null,
+    val payrollRunStatus: Int? = null,
+    val baseSalary: Double? = null,
+    val bonusAmount: Double? = null,
+    val adjustmentAmount: Double? = null,
+    val grossSalary: Double? = null,
+    val finalNetSalary: Double? = null,
+    val totalEmployerCost: Double? = null,
+    val paidAt: String? = null,
+    val paymentMethod: Int? = null,
+)
+
+data class HrOption(val value: Int, val label: String)
+
+/** Seçim siyahıları (hr.ts sabitləri). */
+object HrEnums {
+    val GENDERS = listOf(HrOption(1, "Kişi"), HrOption(2, "Qadın"))
+    val MARITAL_STATUSES = listOf(HrOption(0, "Subay"), HrOption(1, "Evli"))
+    val MILITARY_SERVICES = listOf(
+        HrOption(1, "Xidmət etməyib"),
+        HrOption(2, "Xidmət edib"),
+        HrOption(3, "Hərbi xidmətdən azaddır"),
+    )
+    val EDUCATION_LEVELS = listOf(
+        HrOption(0, "Yoxdur"),
+        HrOption(1, "Ali (bakalavr)"),
+        HrOption(2, "Ali (magistr)"),
+        HrOption(3, "Ali (doktorantura)"),
+        HrOption(4, "Ümumi orta"),
+        HrOption(5, "Tam orta"),
+        HrOption(6, "İlk peşə-ixtisas"),
+        HrOption(7, "Orta ixtisas"),
+        HrOption(8, "Orta ixtisas (ümumi orta əsasında)"),
+        HrOption(9, "Orta ixtisas (tam orta əsasında)"),
+        HrOption(10, "Ali (natamam, 1993-dən əvvəl)"),
+        HrOption(11, "Ali (tam, 1997-dən əvvəl)"),
+    )
+    val EMPLOYMENT_TYPES = listOf(HrOption(1, "Tam ştat"), HrOption(2, "Yarım ştat"))
+    val EMPLOYEE_STATUSES = listOf(HrOption(1, "Aktiv"), HrOption(2, "Qeyri-aktiv"))
+    val WORKING_DAYS = listOf(HrOption(1, "5 günlük iş həftəsi"), HrOption(2, "6 günlük iş həftəsi"))
+    val DISCIPLINARY_TYPES = listOf(
+        HrOption(1, "Xəbərdarlıq"),
+        HrOption(2, "Töhmət"),
+        HrOption(3, "Ciddi töhmət"),
+    )
+    val INSTITUTION_TYPES = listOf(HrOption(1, "Ali məktəb"), HrOption(2, "Kollec"))
+    val CALENDAR_DAY_TYPES = listOf(
+        HrOption(1, "Bayram"),
+        HrOption(2, "İş günü"),
+        HrOption(3, "Qeyri-iş günü"),
+    )
+    val PAYMENT_METHODS = listOf(
+        HrOption(0, "Nağd"),
+        HrOption(1, "Bank köçürməsi"),
+        HrOption(2, "Kart"),
+    )
+    val MONTHS = listOf(
+        "Yanvar", "Fevral", "Mart", "Aprel", "May", "İyun",
+        "İyul", "Avqust", "Sentyabr", "Oktyabr", "Noyabr", "Dekabr",
+    )
+
+    fun label(options: List<HrOption>, value: Int?): String =
+        options.firstOrNull { it.value == value }?.label ?: (value?.toString() ?: "—")
+
+    fun month(value: Int?): String = value?.takeIf { it in 1..12 }?.let { MONTHS[it - 1] } ?: "—"
+
+    /** Təhsil ocağı növü: backend "Ali"/"Kollec" mətnini qaytarır. */
+    fun institutionTypeLabel(value: String?): String = when (value?.trim()?.lowercase()) {
+        "ali", "1" -> "Ali məktəb"
+        "kollec", "2" -> "Kollec"
+        null, "" -> "—"
+        else -> value!!
+    }
+
+    /** Formada seçim üçün rəqəm dəyəri (yaratma/redaktə rəqəmlə göndərilir). */
+    fun institutionTypeValue(value: String?): Int = when (value?.trim()?.lowercase()) {
+        "kollec", "2" -> 2
+        else -> 1
+    }
+}
+
 // ---- Retrofit ---------------------------------------------------------------
 
 interface HrService {
@@ -492,6 +618,56 @@ interface HrService {
     // Fayl əlavələri
     @POST("api/hr/fileattachments/search")
     suspend fun attachmentsSearch(@Body body: SearchBody): Envelope<HrPaged<HrFileAttachmentDto>>
+
+    @DELETE("api/hr/fileattachments/{id}")
+    suspend fun deleteAttachment(@Path("id") id: String): Envelope<JsonElement>
+
+    // Siyahılar
+    @POST("api/hr/employees/search")
+    suspend fun employeesSearch(@Body body: SearchBody): Envelope<HrPaged<HrEmployeeListItemDto>>
+
+    @POST("api/hr/applications/search")
+    suspend fun applicationsSearch(@Body body: SearchBody): Envelope<HrPaged<ApplicationDto>>
+
+    // Sənəd detalları — eyni marşrut, iki kontekst üçün ayrı adlar
+    @GET("api/hr/{route}/{id}")
+    suspend fun applicationDetail(
+        @Path("route") route: String,
+        @Path("id") id: String,
+    ): Envelope<JsonObject>
+
+    @GET("api/hr/{route}/{id}")
+    suspend fun orderDetail(
+        @Path("route") route: String,
+        @Path("id") id: String,
+    ): Envelope<JsonObject>
+
+    @DELETE("api/hr/{route}/{id}")
+    suspend fun deleteOrder(
+        @Path("route") route: String,
+        @Path("id") id: String,
+    ): Envelope<JsonElement>
+
+    // Məzuniyyət balansı — cari il
+    @GET("api/hr/vacationbalances/{id}")
+    suspend fun vacationBalance(@Path("id") employeeId: String): Envelope<HrVacationBalanceDto>
+
+    // Ödənişlər
+    @GET("api/vacation-pays/employee/{id}")
+    suspend fun vacationPays(@Path("id") employeeId: String): Envelope<List<HrVacationPayDto>>
+
+    @POST("api/vacation-pays/{id}/pay")
+    suspend fun payVacationPay(@Path("id") id: String, @Body body: JsonObject): Envelope<HrVacationPayDto>
+
+    @GET("api/payroll-runs/payslips/employee/{id}")
+    suspend fun payslips(@Path("id") employeeId: String): Envelope<List<HrPayslipDto>>
+
+    @POST("api/payroll-runs/{runId}/payslips/{employeeId}/pay")
+    suspend fun payPayslip(
+        @Path("runId") payrollRunId: String,
+        @Path("employeeId") employeeId: String,
+        @Body body: JsonObject,
+    ): Envelope<JsonElement>
 }
 
 /** Ərizə növləri (hr.ts APPLICATION_KINDS). */
@@ -541,12 +717,20 @@ object HrApi {
 class HrRepository(private val api: HrService) {
 
     // Əmrlər
-    suspend fun orders(page: Int, pageSize: Int = 20, search: String? = null, types: List<Int>? = null): Page<HrOrderItemDto> {
-        val filters = types?.takeIf { it.isNotEmpty() }
-            ?.let { listOf(QueryFilter("Type", Comparison.IN, it)) }
+    suspend fun orders(
+        page: Int,
+        pageSize: Int = 20,
+        search: String? = null,
+        types: List<Int>? = null,
+        employeeId: String? = null,
+    ): Page<HrOrderItemDto> {
+        val filters = buildList {
+            types?.takeIf { it.isNotEmpty() }?.let { add(QueryFilter("Type", Comparison.IN, it)) }
+            employeeId?.let { add(QueryFilter("EmployeeId", Comparison.EQUALS, it)) }
+        }
         val env = api.ordersSearch(
             SearchBody(
-                filters = filters,
+                filters = filters.takeIf { it.isNotEmpty() },
                 sortCriteria = SortCriteria("CreatedAt", Sort.DESCENDING),
                 searchTerm = search.clean(),
                 page = page,
@@ -700,6 +884,93 @@ class HrRepository(private val api: HrService) {
         is com.google.gson.JsonArray -> raw
         is com.google.gson.JsonObject -> raw.getAsJsonArray("data") ?: com.google.gson.JsonArray()
         else -> com.google.gson.JsonArray()
+    }
+
+    // ---- Əlavə siyahılar və sənədlər --------------------------------------
+
+    suspend fun employeeList(
+        page: Int,
+        pageSize: Int = 10,
+        search: String? = null,
+        jobId: String? = null,
+        employmentType: Int? = null,
+        isActive: Int? = null,
+        finCode: String? = null,
+        sortColumn: String = "RegisterNumber",
+        ascending: Boolean = true,
+    ): Page<HrEmployeeListItemDto> {
+        val filters = buildList {
+            jobId?.let { add(QueryFilter("JobId", Comparison.IN, listOf(it))) }
+            finCode?.let { add(QueryFilter("FinCode", Comparison.IN, listOf(it))) }
+            employmentType?.let { add(QueryFilter("EmploymentType", Comparison.IN, listOf(it))) }
+            isActive?.let { add(QueryFilter("IsActive", Comparison.IN, listOf(it))) }
+        }
+        val payload = api.employeesSearch(
+            SearchBody(
+                filters = filters.takeIf { it.isNotEmpty() },
+                sortCriteria = SortCriteria(sortColumn, if (ascending) Sort.ASCENDING else Sort.DESCENDING),
+                searchTerm = search.clean(),
+                page = page,
+                pageSize = pageSize,
+            ),
+        ).unwrap("İşçilər")
+        return Page(payload.data.orEmpty(), payload.totalCount ?: 0, payload.page ?: page, payload.pageSize ?: pageSize)
+    }
+
+    suspend fun applications(
+        page: Int,
+        pageSize: Int = 10,
+        type: Int? = null,
+        status: Int? = null,
+        employeeId: String? = null,
+    ): Page<ApplicationDto> {
+        val filters = buildList {
+            type?.let { add(QueryFilter("Type", Comparison.IN, listOf(it))) }
+            status?.let { add(QueryFilter("Status", Comparison.IN, listOf(it))) }
+            employeeId?.let { add(QueryFilter("EmployeeId", Comparison.EQUALS, it)) }
+        }
+        val payload = api.applicationsSearch(
+            SearchBody(
+                filters = filters.takeIf { it.isNotEmpty() },
+                sortCriteria = SortCriteria("CreatedAt", Sort.DESCENDING),
+                page = page,
+                pageSize = pageSize,
+            ),
+        ).unwrap("Ərizələr")
+        return Page(payload.data.orEmpty(), payload.totalCount ?: 0, payload.page ?: page, payload.pageSize ?: pageSize)
+    }
+
+    suspend fun applicationDetail(type: Int, id: String): JsonObject =
+        api.applicationDetail(HrApplicationKind.route(type), id).unwrap("Ərizə")
+
+    suspend fun orderDetail(type: Int, id: String): JsonObject =
+        api.orderDetail(HrOrderKind.route(type), id).unwrap("Əmr")
+
+    suspend fun deleteOrder(type: Int, id: String) {
+        api.deleteOrder(HrOrderKind.route(type), id)
+    }
+
+    suspend fun vacationPayList(employeeId: String): List<HrVacationPayDto> =
+        api.vacationPays(employeeId).data.orEmpty()
+
+    suspend fun payVacationPay(id: String, paymentMethod: Int) {
+        api.payVacationPay(id, JsonObject().apply { addProperty("paymentMethod", paymentMethod) })
+            .unwrap("Məzuniyyət ödənişi")
+    }
+
+    suspend fun payslips(employeeId: String): List<HrPayslipDto> =
+        api.payslips(employeeId).data.orEmpty()
+
+    suspend fun payPayslip(payrollRunId: String, employeeId: String, paymentMethod: Int) {
+        api.payPayslip(
+            payrollRunId,
+            employeeId,
+            JsonObject().apply { addProperty("paymentMethod", paymentMethod) },
+        ).unwrap("Qəbz")
+    }
+
+    suspend fun deleteAttachment(id: String) {
+        api.deleteAttachment(id)
     }
 
     private fun <T> Envelope<T>.unwrap(what: String): T =

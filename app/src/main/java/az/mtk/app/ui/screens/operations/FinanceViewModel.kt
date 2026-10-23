@@ -10,7 +10,6 @@ import az.mtk.app.data.api.FinPaymentResponse
 import az.mtk.app.data.api.FinRateResponse
 import az.mtk.app.data.api.FinTransactionDirection
 import az.mtk.app.data.api.FinTransactionResponse
-import az.mtk.app.data.api.InvPurchaseResponse
 import az.mtk.app.data.api.OpsOneTimeExpenseRequest
 import az.mtk.app.data.api.OpsPayrollRunDto
 import az.mtk.app.data.api.OpsVacationPayDto
@@ -79,11 +78,6 @@ class FinanceViewModel : ViewModel() {
         val ratesLoading: Boolean = false,
         val ratesError: String? = null,
 
-        // Satınalmalar
-        val purchases: List<InvPurchaseResponse> = emptyList(),
-        val purchasesLoading: Boolean = false,
-        val purchasesError: String? = null,
-
         // Əmək haqqı
         val payroll: OpsPayrollRunDto? = null,
         val payrollLoading: Boolean = false,
@@ -131,7 +125,7 @@ class FinanceViewModel : ViewModel() {
             }
             FinanceSection.INCOMES -> loadTransactions(FinTransactionDirection.INCOME)
             FinanceSection.RATES -> if (_state.value.rates.isEmpty()) loadRates()
-            FinanceSection.PURCHASES -> if (_state.value.purchases.isEmpty()) loadPurchases()
+            FinanceSection.PURCHASES -> Unit
             FinanceSection.PAYROLL -> loadPayroll(_state.value.payrollYear, _state.value.payrollMonth)
             FinanceSection.VACATION -> if (_state.value.vacation.isEmpty()) loadVacation()
         }
@@ -155,7 +149,7 @@ class FinanceViewModel : ViewModel() {
             FinanceSection.EXPENSES -> loadTransactions(FinTransactionDirection.EXPENSE)
             FinanceSection.INCOMES -> loadTransactions(FinTransactionDirection.INCOME)
             FinanceSection.RATES -> loadRates()
-            FinanceSection.PURCHASES -> loadPurchases()
+            FinanceSection.PURCHASES -> Unit
             FinanceSection.PAYROLL -> loadPayroll(_state.value.payrollYear, _state.value.payrollMonth)
             FinanceSection.VACATION -> loadVacation()
             null -> Unit
@@ -415,20 +409,6 @@ class FinanceViewModel : ViewModel() {
                 loadRates()
             } catch (t: Throwable) {
                 _state.value = _state.value.copy(saving = false, formError = t.toUserMessage())
-            }
-        }
-    }
-
-    // ---- Satınalmalar -------------------------------------------------------
-
-    fun loadPurchases() {
-        _state.value = _state.value.copy(purchasesLoading = true, purchasesError = null)
-        viewModelScope.launch {
-            try {
-                val page = repo.purchases(0, pageSize = 40)
-                _state.value = _state.value.copy(purchases = page.items, purchasesLoading = false)
-            } catch (t: Throwable) {
-                _state.value = _state.value.copy(purchasesLoading = false, purchasesError = t.toUserMessage())
             }
         }
     }

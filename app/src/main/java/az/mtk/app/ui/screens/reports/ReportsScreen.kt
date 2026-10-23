@@ -52,6 +52,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import az.mtk.app.data.api.ReportExports
 import az.mtk.app.data.files.FileRepository
 import az.mtk.app.ui.components.AppSheet
+import az.mtk.app.ui.components.DocumentPreviewHost
+import az.mtk.app.ui.components.rememberDocumentPreviewController
 import az.mtk.app.ui.mtkViewModel
 import az.mtk.app.ui.screens.operations.OpsCard
 import az.mtk.app.ui.screens.operations.OpsChip
@@ -862,9 +864,10 @@ private fun MonthlyContent(
         if (canDownload) {
             item {
                 ReportFileButton(
-                    label = "PDF hesabatı endir",
+                    label = "PDF hesabatı aç",
                     path = ReportExports.monthlyPdf(state.year, state.month),
                     fallbackName = "ayliq-hesabat-${state.year}-${"%02d".format(state.month)}.pdf",
+                    previewTitle = "Aylıq hesabat — ${Format.period("${state.year}-${"%02d".format(state.month)}")}",
                     primary = true,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1345,9 +1348,11 @@ private fun ReportFileButton(
     fallbackName: String,
     primary: Boolean,
     modifier: Modifier = Modifier,
+    previewTitle: String? = null,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val preview = rememberDocumentPreviewController()
     var downloading by remember { mutableStateOf(false) }
 
     val onClick: () -> Unit = {
@@ -1359,7 +1364,14 @@ private fun ReportFileButton(
                     path = path,
                     fallbackName = fallbackName,
                 )
-                if (!FileRepository.openFile(context, result.file)) {
+                if (fallbackName.endsWith(".pdf", ignoreCase = true)) {
+                    preview.show(
+                        filePath = result.file.absolutePath,
+                        fileName = result.fileName,
+                        mimeHint = "application/pdf",
+                        title = previewTitle ?: label,
+                    )
+                } else if (!FileRepository.openFile(context, result.file)) {
                     Toast.makeText(
                         context,
                         "Fayl yükləndi: ${result.fileName}",
@@ -1390,6 +1402,8 @@ private fun ReportFileButton(
             enabled = !downloading,
         )
     }
+
+    DocumentPreviewHost(preview)
 }
 
 private fun todayLabel(): String {

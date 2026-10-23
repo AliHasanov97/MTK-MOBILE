@@ -40,6 +40,10 @@ import az.mtk.app.data.api.ArtArticleListItem
 import az.mtk.app.data.api.ArticleStatus
 import az.mtk.app.data.files.FileRepository
 import az.mtk.app.ui.components.AppSheet
+import az.mtk.app.ui.components.DocumentPreviewHost
+import az.mtk.app.ui.components.PreviewDocument
+import az.mtk.app.ui.components.rememberDocumentPreviewController
+import az.mtk.app.ui.components.supportsInAppPreview
 import az.mtk.app.ui.mtkViewModel
 import az.mtk.app.ui.screens.operations.OpsCard
 import az.mtk.app.ui.screens.operations.OpsColors
@@ -432,6 +436,7 @@ private fun ArticleDetailContent(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val preview = rememberDocumentPreviewController()
     var downloadingId by remember(article.id) { mutableStateOf<String?>(null) }
     var downloadError by remember(article.id) { mutableStateOf<String?>(null) }
 
@@ -507,7 +512,7 @@ private fun ArticleDetailContent(
             NewsFileRow(
                 name = file.fileName,
                 supporting = file.mimeType,
-                actionLabel = if (downloadingId == file.id) "Yüklənir…" else "Endir",
+                actionLabel = if (downloadingId == file.id) "Açılır…" else "Aç",
                 enabled = downloadingId == null,
                 onAction = {
                     scope.launch {
@@ -519,10 +524,13 @@ private fun ArticleDetailContent(
                                 path = "api/communications/fileattachments/${file.id}/download",
                                 fallbackName = file.fileName,
                             )
-                            if (!FileRepository.openFile(context, result.file)) {
+                            val document = PreviewDocument(result, file.mimeType, file.fileName)
+                            if (document.supportsInAppPreview()) {
+                                preview.show(document)
+                            } else if (!FileRepository.openFile(context, result.file)) {
                                 Toast.makeText(
                                     context,
-                                    "Fayl yükləndi: ${result.fileName}",
+                                    "Fayl endirildi: ${result.fileName}",
                                     Toast.LENGTH_LONG,
                                 ).show()
                             }
@@ -544,6 +552,8 @@ private fun ArticleDetailContent(
         Spacer(Modifier.height(8.dp))
         NewsInlineError(downloadError!!)
     }
+
+    DocumentPreviewHost(preview)
 
     if (actionError != null) {
         Spacer(Modifier.height(8.dp))

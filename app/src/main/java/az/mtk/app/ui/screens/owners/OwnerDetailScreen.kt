@@ -37,6 +37,8 @@ import az.mtk.app.data.auth.AuthState
 import az.mtk.app.data.auth.Roles
 import az.mtk.app.data.files.FileRepository
 import az.mtk.app.ui.components.AppSheetDialog
+import az.mtk.app.ui.components.DocumentPreviewHost
+import az.mtk.app.ui.components.rememberDocumentPreviewController
 import az.mtk.app.ui.mtkViewModel
 import az.mtk.app.ui.screens.properties.ChargeCard
 import az.mtk.app.ui.screens.properties.ChargeDetailDialog
@@ -876,6 +878,7 @@ private fun PaymentDetailDialog(
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val preview = rememberDocumentPreviewController()
     var downloading by remember { mutableStateOf(false) }
 
     AppSheetDialog(
@@ -920,13 +923,12 @@ private fun PaymentDetailDialog(
                                         path = "api/payments/payments/${payment.id}/receipt",
                                         fallbackName = "qebz-${payment.id.take(8)}.pdf",
                                     )
-                                    if (!FileRepository.openFile(context, result.file)) {
-                                        Toast.makeText(
-                                            context,
-                                            "Fayl yükləndi: ${result.fileName}",
-                                            Toast.LENGTH_LONG,
-                                        ).show()
-                                    }
+                                    preview.show(
+                                        filePath = result.file.absolutePath,
+                                        fileName = result.fileName,
+                                        mimeHint = "application/pdf",
+                                        title = "Ödəniş qəbzi ${payment.id.take(8).uppercase()}",
+                                    )
                                 } catch (e: Exception) {
                                     Toast.makeText(context, e.toUserMessage(), Toast.LENGTH_LONG).show()
                                 } finally {
@@ -942,7 +944,7 @@ private fun PaymentDetailDialog(
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
                     ) {
                         Text(
-                            text = if (downloading) "Yüklənir…" else "Qəbzi yüklə (PDF)",
+                            text = if (downloading) "Açılır…" else "Qəbzi aç (PDF)",
                             fontSize = 10.sp,
                             fontWeight = FontWeight.SemiBold,
                         )
@@ -1037,6 +1039,8 @@ private fun PaymentDetailDialog(
             }
         },
     )
+
+    DocumentPreviewHost(preview)
 }
 
 @Composable

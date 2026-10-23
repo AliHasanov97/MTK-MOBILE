@@ -42,6 +42,8 @@ import az.mtk.app.data.api.InventoryRepository
 import az.mtk.app.data.api.finPaymentMethodLabel
 import az.mtk.app.data.api.finPaymentStatusLabel
 import az.mtk.app.data.files.FileRepository
+import az.mtk.app.ui.components.DocumentPreviewHost
+import az.mtk.app.ui.components.rememberDocumentPreviewController
 import az.mtk.app.ui.mtkViewModel
 import az.mtk.app.ui.screens.operations.OpsCard
 import az.mtk.app.ui.screens.operations.OpsChip
@@ -655,7 +657,8 @@ private fun PaymentDocument(document: TxDocument.Payment, canDownload: Boolean) 
     Spacer(Modifier.height(14.dp))
     if (canDownload) {
         PdfDownloadButton(
-            label = "Qəbzi yüklə (PDF)",
+            label = "Qəbzi aç (PDF)",
+            title = "Ödəniş qəbzi",
             path = "api/payments/payments/${payment.id}/receipt",
             fallbackName = "qebz-${payment.id.take(8)}.pdf",
         )
@@ -723,7 +726,8 @@ private fun PurchaseDocument(document: TxDocument.Purchase, canDownload: Boolean
     Spacer(Modifier.height(14.dp))
     if (canDownload) {
         PdfDownloadButton(
-            label = "Qaiməni yüklə (PDF)",
+            label = "Qaiməni aç (PDF)",
+            title = "Satınalma qaiməsi",
             path = InventoryRepository.purchasePdfPath(purchase.id),
             fallbackName = "qaime-${purchase.id.take(8)}.pdf",
         )
@@ -759,9 +763,10 @@ private fun PlainDocument(row: TxRow) {
 // ---- Köməkçilər --------------------------------------------------------------
 
 @Composable
-private fun PdfDownloadButton(label: String, path: String, fallbackName: String) {
+private fun PdfDownloadButton(label: String, title: String, path: String, fallbackName: String) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val preview = rememberDocumentPreviewController()
     var downloading by remember { mutableStateOf(false) }
 
     OpsPrimaryButton(
@@ -775,13 +780,12 @@ private fun PdfDownloadButton(label: String, path: String, fallbackName: String)
                         path = path,
                         fallbackName = fallbackName,
                     )
-                    if (!FileRepository.openFile(context, result.file)) {
-                        Toast.makeText(
-                            context,
-                            "Fayl yükləndi: ${result.fileName}",
-                            Toast.LENGTH_LONG,
-                        ).show()
-                    }
+                    preview.show(
+                        filePath = result.file.absolutePath,
+                        fileName = result.fileName,
+                        mimeHint = "application/pdf",
+                        title = title,
+                    )
                 } catch (t: Throwable) {
                     Toast.makeText(context, t.toUserMessage(), Toast.LENGTH_LONG).show()
                 } finally {
@@ -792,6 +796,8 @@ private fun PdfDownloadButton(label: String, path: String, fallbackName: String)
         modifier = Modifier.fillMaxWidth(),
         enabled = !downloading,
     )
+
+    DocumentPreviewHost(preview)
 }
 
 @Composable

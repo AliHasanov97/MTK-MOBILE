@@ -27,6 +27,10 @@ import az.mtk.app.data.api.ArtArticle
 import az.mtk.app.data.api.ArtArticleAttachment
 import az.mtk.app.data.api.LandingRepository
 import az.mtk.app.data.files.FileRepository
+import az.mtk.app.ui.components.DocumentPreviewHost
+import az.mtk.app.ui.components.PreviewDocument
+import az.mtk.app.ui.components.rememberDocumentPreviewController
+import az.mtk.app.ui.components.supportsInAppPreview
 import az.mtk.app.ui.theme.MtkColors
 import az.mtk.app.util.Format
 import az.mtk.app.util.parseBBCode
@@ -142,6 +146,7 @@ private fun ArticleContent(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val preview = rememberDocumentPreviewController()
     val publishedAt = article.publishedAt ?: article.createdAt ?: ""
     val dateLabel = try {
         Format.date(publishedAt)
@@ -152,6 +157,8 @@ private fun ArticleContent(
     val publicFiles = article.fileAttachments?.filter { it.isPublic } ?: emptyList()
     val imageFiles = publicFiles.filter { isImageFile(it) }
     val downloadableFiles = publicFiles.filter { !isImageFile(it) }
+
+    DocumentPreviewHost(preview)
 
     LazyColumn(
         modifier = modifier
@@ -376,18 +383,18 @@ private fun ArticleContent(
                                         fallbackName = file.fileName,
                                     )
                                     android.util.Log.d("ArticleDetail", "File downloaded: ${result.fileName}")
-                                    val opened = FileRepository.openFile(context, result.file)
-                                    if (!opened) {
+                                    val document = PreviewDocument(
+                                        result = result,
+                                        mimeHint = file.mimeType,
+                                        title = file.fileName,
+                                    )
+                                    if (document.supportsInAppPreview()) {
+                                        preview.show(document)
+                                    } else if (!FileRepository.openFile(context, result.file)) {
                                         Toast.makeText(
                                             context,
-                                            "Fayl yükləndi: ${result.fileName}",
+                                            "Fayl endirildi: ${result.fileName}",
                                             Toast.LENGTH_LONG
-                                        ).show()
-                                    } else {
-                                        Toast.makeText(
-                                            context,
-                                            "Fayl açılır...",
-                                            Toast.LENGTH_SHORT
                                         ).show()
                                     }
                                 } catch (e: Exception) {

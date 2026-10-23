@@ -491,6 +491,10 @@ class InventoryRepository(private val api: InventoryApi) {
     suspend fun createPurchase(request: InvCreatePurchaseRequest): String =
         api.createPurchase(request).data ?: throw ApiException("Satınalma yaradılmadı")
 
+    suspend fun updatePurchase(id: String, request: InvCreatePurchaseRequest) {
+        api.updatePurchase(id, request)
+    }
+
     suspend fun receivePurchase(purchaseId: String) {
         api.receivePurchase(purchaseId)
     }

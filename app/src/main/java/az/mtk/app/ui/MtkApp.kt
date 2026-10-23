@@ -19,6 +19,8 @@ import az.mtk.app.ui.screens.dashboard.DashboardScreen
 import az.mtk.app.ui.screens.inventory.InventoryItemScreen
 import az.mtk.app.ui.screens.inventory.InventoryScreen
 import az.mtk.app.ui.screens.appeals.AppealsScreen
+import az.mtk.app.ui.screens.hr.EmployeeDetailScreen
+import az.mtk.app.ui.screens.hr.HrScreen
 import az.mtk.app.ui.screens.identity.IdentityScreen
 import az.mtk.app.ui.screens.news.NewsScreen
 import az.mtk.app.ui.screens.landing.*
@@ -63,6 +65,9 @@ fun MtkApp() {
     var showIdentity by remember { mutableStateOf(false) }
     // Xəbərlər modulu: elanlar, qaralamalar və arxiv.
     var showNews by remember { mutableStateOf(false) }
+    // HR modulu: işçilər, ərizələr, əmrlər, tabel, təqvim və lüğətlər.
+    var showHr by remember { mutableStateOf(false) }
+    var selectedHrEmployeeId by remember { mutableStateOf<String?>(null) }
     var companyName by remember { mutableStateOf("MTK") }
 
     val repository = remember { LandingRepository() }
@@ -126,6 +131,14 @@ fun MtkApp() {
     // Xəbərlər modulu açıqdırsa sistem "geri" düyməsi dashboard-a qaytarır.
     BackHandler(enabled = showNews) {
         showNews = false
+    }
+
+    // HR modulu: əvvəlcə işçi kartı, sonra modulun özü bağlanır.
+    BackHandler(enabled = selectedHrEmployeeId != null) {
+        selectedHrEmployeeId = null
+    }
+    BackHandler(enabled = showHr && selectedHrEmployeeId == null) {
+        showHr = false
     }
 
     // Load company name on startup
@@ -220,6 +233,20 @@ fun MtkApp() {
                     },
                 )
             }
+        } else if (selectedHrEmployeeId != null && authenticated != null) {
+            // İşçi kartı (HR → İşçilər)
+            key(selectedHrEmployeeId) {
+                EmployeeDetailScreen(
+                    employeeId = selectedHrEmployeeId!!,
+                    onBack = { selectedHrEmployeeId = null },
+                )
+            }
+        } else if (showHr && authenticated != null) {
+            // HR modulu: İşçilər · Ərizələr · Əmrlər · Tabel · Təqvim · Lüğətlər
+            HrScreen(
+                onBack = { showHr = false },
+                onOpenEmployee = { selectedHrEmployeeId = it },
+            )
         } else if (selectedNomenclatureId != null && authenticated != null) {
             // Material detalı (İnventar → Materiallar)
             key(selectedNomenclatureId) {
@@ -354,6 +381,9 @@ fun MtkApp() {
                 },
                 onOpenNews = {
                     showNews = true
+                },
+                onOpenHr = {
+                    showHr = true
                 },
             )
         } else {
