@@ -95,6 +95,13 @@ data class PaymentDto(
     val apartmentId: String?,
     val garageId: String?,
     val status: Int?,
+    // Backend həm sakin, həm tədarükçü ödənişi üçün eyni cavabı qaytarır;
+    // aşağıdakılar sənəd görünüşündə istifadə olunur.
+    val vendorId: String? = null,
+    val customerId: String? = null,
+    val partyName: String? = null,
+    val propertyLabel: String? = null,
+    val createdAt: String? = null,
 )
 
 
@@ -113,6 +120,10 @@ interface PaymentsApi {
     @retrofit2.http.POST("api/payments/payments")
     suspend fun createPayment(@retrofit2.http.Body body: CreatePaymentRequestDto): Envelope<String>
 
+    /** Tək ödəniş — tranzaksiya jurnalındakı sənədə keçid üçün. */
+    @retrofit2.http.GET("api/payments/payments/{paymentId}")
+    suspend fun payment(@retrofit2.http.Path("paymentId") paymentId: String): Envelope<PaymentDto>
+
     @retrofit2.http.GET("api/payments/charges/{chargeId}/allocations")
     suspend fun chargeAllocations(@retrofit2.http.Path("chargeId") chargeId: String): Envelope<List<ChargeAllocationDto>>
 
@@ -129,16 +140,13 @@ interface PaymentsApi {
     suspend fun companyBalance(): Envelope<CompanyBalanceDto>
 
     @retrofit2.http.GET("api/payments/charges/owner/{ownerId}")
-    suspend fun getChargesByOwner(@retrofit2.http.Path("ownerId") ownerId: String): Envelope<ChargesPage>
+    suspend fun getChargesByOwner(@retrofit2.http.Path("ownerId") ownerId: String): Envelope<List<ChargeDto>>
 
     @retrofit2.http.GET("api/payments/payments/property/{propertyId}")
     suspend fun getPaymentsByProperty(@retrofit2.http.Path("propertyId") propertyId: String): Envelope<List<PaymentDto>>
 
     @retrofit2.http.GET("api/payments/payments/owner/{ownerId}")
     suspend fun getPaymentsByOwner(@retrofit2.http.Path("ownerId") ownerId: String): Envelope<List<PaymentDto>>
-
-    @retrofit2.http.GET("api/payments/charges/owner/{ownerId}")
-    suspend fun getChargesPage(@retrofit2.http.Path("ownerId") ownerId: String): Envelope<ChargesPage>
 }
 
 object PaymentMethods {

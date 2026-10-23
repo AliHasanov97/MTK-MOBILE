@@ -70,6 +70,45 @@ object FileRepository {
         }
     }
 
+    /**
+     * Android 10+ scoped storage public Downloads qovluğuna birbaşa yazmağa
+     * icazə vermir, ona görə ixrac fayllarını tətbiqin öz `filesDir`-inə
+     * yazırıq və FileProvider ilə açırıq.
+     */
+    suspend fun downloadToInternal(
+        context: Context,
+        path: String,
+        fallbackName: String? = null,
+    ): DownloadResult = withContext(Dispatchers.IO) {
+        val url = AppConfig.ApiBaseUrl.removeSuffix("/") + "/" + path.removePrefix("/")
+        val request = Request.Builder().url(url).build()
+
+        AppGraph.httpClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                val errorBody = response.body?.string() ?: "No error details"
+                android.util.Log.e("FileRepository", "Download failed: ${response.code} - $errorBody")
+                throw az.mtk.app.data.api.ApiException(
+                    "Fayl yüklənmədi (${response.code}): ${response.message}",
+                    response.code,
+                )
+            }
+
+            val resolved = resolveFileName(response.header("Content-Disposition"), path)
+            val fileName = if (resolved.contains('.')) {
+                resolved
+            } else {
+                fallbackName ?: "$resolved.pdf"
+            }
+
+            val dir = File(context.filesDir, "exports").apply { if (!exists()) mkdirs() }
+            val target = uniqueFile(dir, fileName)
+            response.body?.byteStream()?.use { input ->
+                target.outputStream().use { output -> input.copyTo(output) }
+            }
+            DownloadResult(target.name, target)
+        }
+    }
+
     /** Adds the downloaded file to the Downloads list and returns true if a viewer could be launched. */
     fun registerAndOpen(context: Context, result: DownloadResult): Boolean {
         return runCatching {

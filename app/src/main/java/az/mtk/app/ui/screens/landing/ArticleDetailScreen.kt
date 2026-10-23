@@ -283,7 +283,7 @@ private fun ArticleContent(
                             contentAlignment = Alignment.Center
                         ) {
                             AsyncImage(
-                                model = "${AppConfig.ApiBaseUrl}api/communications/file-attachments/${file.id}/download",
+                                model = "${AppConfig.ApiBaseUrl}api/communications/fileattachments/${file.id}/download",
                                 contentDescription = file.fileName,
                                 imageLoader = AppGraph.imageLoader,
                                 modifier = Modifier
@@ -370,11 +370,13 @@ private fun ArticleContent(
                                 isDownloading = true
                                 try {
                                     android.util.Log.d("ArticleDetail", "Downloading file: ${file.id} - ${file.fileName}")
-                                    val result = FileRepository.download(
-                                        path = "api/communications/file-attachments/${file.id}/download"
+                                    val result = FileRepository.downloadToInternal(
+                                        context = context,
+                                        path = "api/communications/fileattachments/${file.id}/download",
+                                        fallbackName = file.fileName,
                                     )
                                     android.util.Log.d("ArticleDetail", "File downloaded: ${result.fileName}")
-                                    val opened = FileRepository.registerAndOpen(context, result)
+                                    val opened = FileRepository.openFile(context, result.file)
                                     if (!opened) {
                                         Toast.makeText(
                                             context,

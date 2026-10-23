@@ -53,13 +53,6 @@ data class OprPaymentResponse(
     val propertyLabel: String?,
 )
 
-data class OprPaymentsPage(
-    val payments: List<OprPaymentResponse>?,
-    val totalCount: Int,
-    val page: Int,
-    val pageSize: Int,
-)
-
 interface OwnerProfileApi {
 
     /** "Mənim profilim" — sakinin öz Owner qeydi öz Users.Id-si ilə. */
@@ -72,9 +65,9 @@ interface OwnerProfileApi {
 
     // ---- Owner charges ----
     @retrofit2.http.GET("api/payments/charges/owner/{ownerId}")
-    suspend fun chargesByOwner(@retrofit2.http.Path("ownerId") ownerId: String): Envelope<ChargesPage>
+    suspend fun chargesByOwner(@retrofit2.http.Path("ownerId") ownerId: String): Envelope<List<ChargeDto>>
 
     // ---- Owner payments ----
     @retrofit2.http.GET("api/payments/payments/owner/{ownerId}")
-    suspend fun paymentsByOwner(@retrofit2.http.Path("ownerId") ownerId: String): Envelope<OprPaymentsPage>
+    suspend fun paymentsByOwner(@retrofit2.http.Path("ownerId") ownerId: String): Envelope<List<OprPaymentResponse>>
 }

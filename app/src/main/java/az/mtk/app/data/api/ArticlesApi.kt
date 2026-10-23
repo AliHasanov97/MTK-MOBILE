@@ -92,6 +92,19 @@ interface ArticlesApi {
 
     @retrofit2.http.DELETE("api/communications/articles/{id}")
     suspend fun deleteArticle(@retrofit2.http.Path("id") id: String)
+
+    // ---- Fayllar (api/communications/fileattachments) ----
+
+    @retrofit2.http.Multipart
+    @retrofit2.http.POST("api/communications/fileattachments")
+    suspend fun uploadArticleFile(
+        @retrofit2.http.Part file: okhttp3.MultipartBody.Part,
+        @retrofit2.http.Part("ArticleId") articleId: okhttp3.RequestBody,
+        @retrofit2.http.Part("IsPublic") isPublic: okhttp3.RequestBody,
+    ): Envelope<ArtArticleAttachment>
+
+    @retrofit2.http.DELETE("api/communications/fileattachments/{id}")
+    suspend fun deleteArticleFile(@retrofit2.http.Path("id") id: String)
 }
 
 data class ArtArticleUpdateBody(

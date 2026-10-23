@@ -1,7 +1,9 @@
 package az.mtk.app.ui.screens.properties
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -9,249 +11,284 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import az.mtk.app.data.api.ChargeDto
 import az.mtk.app.data.api.OwnershipRecordDto
 import az.mtk.app.data.api.PaymentDto
-import java.text.SimpleDateFormat
+import az.mtk.app.util.Format
 import java.util.Locale
-import androidx.compose.ui.graphics.Color
 
-private object ExtColors {
-    val Background = Color(0xFFFAFAF8)
-    val Surface = Color(0xFFFFFFFF)
-    val Subtle = Color(0xFFF4F4EE)
-    val Container = Color(0xFFF8EBE6)
-    val Border = Color(0xFFE2E0D8)
-    val Ink = Color(0xFF201A18)
-    val Muted = Color(0xFF594139)
-    val MutedSoft = Color(0xFF8D7168)
-    val Terracotta = Color(0xFFD9531E)
-    val TerracottaVivid = Color(0xFFE85D04)
-    val Forest = Color(0xFF284033)
-    val ForestDeep = Color(0xFF1B2D23)
-    val Olive = Color(0xFF6F8559)
-    val Lime = Color(0xFFD2EBB7)
-    val Error = Color(0xFFBA1A1A)
+// ---------------------------------------------------------------- formatting
+
+/** "46.87" — the same 2-decimal figure the panel prints (dot, not locale comma). */
+internal fun formatNumber(value: Double): String = String.format(Locale.US, "%.2f", value)
+
+internal fun money(value: Double?): String = value?.let { "${formatNumber(it)} ₼" } ?: "—"
+
+/**
+ * Signed balance, exactly like the panel's formatSigned(): "0 ₼", "+12.00 ₼",
+ * "-30.50 ₼" — a debt keeps its minus sign instead of turning into an
+ * unsigned amount with a "borc" label.
+ */
+internal fun signedMoney(value: Double?): String {
+    val amount = value ?: 0.0
+    if (kotlin.math.abs(amount) < 0.005) return "0 ₼"
+    return (if (amount > 0) "+" else "-") + formatNumber(kotlin.math.abs(amount)) + " ₼"
 }
 
+/**
+ * Spells out how a charge's amount was calculated from the rate snapshot it
+ * was created with — mirrors MTK-UI's chargeDescription().
+ */
+internal fun chargeDescription(charge: ChargeDto): String {
+    val period = Format.period(charge.period)
+    val area = charge.areaSquareMeters
+    val rate = charge.rateAmount
+
+    return when {
+        charge.rateType == 0 && area != null && rate != null ->
+            "Aylıq mənzil haqqı ($period): ${formatNumber(area)} m² × ${formatNumber(rate)} ₼/m²"
+
+        charge.rateType == 1 && rate != null ->
+            "Aylıq qaraj haqqı ($period): sabit ${formatNumber(rate)} ₼"
+
+        else -> charge.description ?: "Haqq ($period)"
+    }
+}
+
+private fun chargeStatusColor(status: Int?): Color = when (status) {
+    2 -> DetailColors.Olive
+    1 -> Color(0xFFB26A00)
+    3 -> DetailColors.MutedSoft
+    else -> DetailColors.Error
+}
+
+// ------------------------------------------------------------- hero finance
+
 @Composable
-fun FinanceStatsSection(property: PropertyDetail, payments: List<PaymentDto>) {
+internal fun FinanceStatsSection(
+    property: PropertyDetail,
+    payments: List<PaymentDto>,
+    canPay: Boolean,
+    onPay: () -> Unit,
+) {
+    val balance = property.balance ?: 0.0
+    val lastPayment = payments.maxByOrNull { it.paymentDate.orEmpty() }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = ExtColors.Surface),
-        border = BorderStroke(1.dp, ExtColors.Border),
+        colors = CardDefaults.cardColors(containerColor = DetailColors.Surface),
+        border = BorderStroke(1.dp, DetailColors.Border),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Balance
+            // Balans + "Ödə" — the web hero's first stat.
             Column(
+                modifier = Modifier.weight(1f),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
+                Text("Balans", fontSize = 12.sp, color = DetailColors.Muted)
                 Text(
-                    "Balans",
-                    fontSize = 12.sp,
-                    color = ExtColors.Muted,
-                )
-                val balance = property.balance ?: 0.0
-                val balanceColor = when {
-                    balance < -0.01 -> ExtColors.Error
-                    balance > 0.01 -> ExtColors.Olive
-                    else -> ExtColors.Ink
-                }
-                Text(
-                    text = String.format("%.2f ₼", kotlin.math.abs(balance)),
+                    text = signedMoney(balance),
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
-                    color = balanceColor,
+                    color = when {
+                        balance < -0.005 -> DetailColors.Error
+                        balance > 0.005 -> DetailColors.Olive
+                        else -> DetailColors.Ink
+                    },
                 )
-                if (balance < -0.01) {
-                    Text(
-                        "borc",
-                        fontSize = 11.sp,
-                        color = ExtColors.Error,
-                    )
-                } else if (balance > 0.01) {
-                    Text(
-                        "avans",
-                        fontSize = 11.sp,
-                        color = ExtColors.Olive,
-                    )
+                if (canPay && property.ownerId != null) {
+                    OutlinedButton(
+                        onClick = onPay,
+                        enabled = balance < -0.005,
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 2.dp),
+                        modifier = Modifier.height(32.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, DetailColors.Terracotta),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = DetailColors.Terracotta,
+                        ),
+                    ) {
+                        Text("Ödə", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
                 }
             }
 
             VerticalDivider(
-                modifier = Modifier.height(60.dp),
-                color = ExtColors.Border,
+                modifier = Modifier.height(72.dp),
+                color = DetailColors.Border,
             )
 
-            // Last payment
+            // Son ödəniş — the web hero's second stat.
             Column(
+                modifier = Modifier.weight(1f),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
+                Text("Son ödəniş", fontSize = 12.sp, color = DetailColors.Muted)
                 Text(
-                    "Son ödəniş",
-                    fontSize = 12.sp,
-                    color = ExtColors.Muted,
-                )
-                val lastPayment = payments.maxByOrNull { it.paymentDate ?: "" }
-                Text(
-                    text = lastPayment?.let { formatDate(it.paymentDate) } ?: "—",
+                    text = Format.dateTime(lastPayment?.paymentDate),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = ExtColors.Ink,
+                    color = DetailColors.Ink,
                 )
+                if (lastPayment?.amount != null) {
+                    Text(
+                        text = money(lastPayment.amount),
+                        fontSize = 11.sp,
+                        color = DetailColors.MutedSoft,
+                    )
+                }
             }
         }
     }
 }
 
+// ------------------------------------------------------- ownership history
+
 @Composable
-fun OwnershipHistorySection(history: List<OwnershipRecordDto>) {
+internal fun OwnershipHistorySection(
+    history: List<OwnershipRecordDto>,
+    creators: Map<String, String>,
+) {
     SectionCard(
         title = "Mülkiyyət tarixçəsi",
         icon = Icons.Default.History,
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            history.take(5).forEach { record ->
-                OwnershipHistoryCard(record)
-                if (record != history.last()) {
-                    HorizontalDivider(color = ExtColors.Border)
+        if (history.isEmpty()) {
+            Text(
+                "Hələ mülkiyyət köçürülməsi qeydə alınmayıb.",
+                fontSize = 13.sp,
+                color = DetailColors.Muted,
+            )
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                history.forEach { record ->
+                    OwnershipHistoryCard(
+                        record = record,
+                        performedBy = creators[record.id],
+                    )
                 }
-            }
-            if (history.size > 5) {
-                Text(
-                    "+ ${history.size - 5} daha",
-                    fontSize = 12.sp,
-                    color = ExtColors.Muted,
-                    modifier = Modifier.align(Alignment.CenterHorizontally),
-                )
             }
         }
     }
 }
 
 @Composable
-private fun OwnershipHistoryCard(record: OwnershipRecordDto) {
-    Row(
+private fun OwnershipHistoryCard(record: OwnershipRecordDto, performedBy: String?) {
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+        shape = RoundedCornerShape(12.dp),
+        color = DetailColors.Subtle,
+        border = BorderStroke(1.dp, DetailColors.Border),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = Format.dateTime(record.transferDate),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = DetailColors.Ink,
+                )
+            }
+
             Row(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    record.previousOwnerName ?: "—",
+                    text = record.previousOwnerName ?: "—",
                     fontSize = 13.sp,
-                    color = ExtColors.Muted,
+                    color = DetailColors.Muted,
                 )
                 Icon(
                     Icons.Default.ArrowForward,
                     null,
                     modifier = Modifier.size(14.dp),
-                    tint = ExtColors.Muted,
+                    tint = DetailColors.Terracotta,
                 )
                 Text(
-                    record.newOwnerName ?: "—",
+                    text = record.newOwnerName ?: "—",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = ExtColors.Ink,
+                    color = DetailColors.Ink,
                 )
             }
+
             Text(
-                formatDate(record.transferDate),
+                text = "Əməliyyatı icra etdi: ${performedBy ?: "—"}",
                 fontSize = 11.sp,
-                color = ExtColors.MutedSoft,
+                color = DetailColors.MutedSoft,
             )
         }
     }
 }
 
-@Composable
-fun ChargesPaymentsSection(charges: List<ChargeDto>, payments: List<PaymentDto>) {
-    var selectedTab by remember { mutableStateOf(0) }
+// -------------------------------------------------- charges and payments
 
-    println("💰 ChargesPaymentsSection: charges=${charges.size}, payments=${payments.size}")
+@Composable
+internal fun ChargesPaymentsSection(
+    charges: List<ChargeDto>,
+    onChargeClick: (ChargeDto) -> Unit,
+) {
+    val sortedCharges = remember(charges) { charges.sortedBy { it.createdAt.orEmpty() } }
 
     SectionCard(
-        title = "Maliyyə",
+        title = "Borclar və ödənişlər",
         icon = Icons.Default.AccountBalance,
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            // Tabs
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                FilterChip(
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
-                    label = { Text("Borclar (${charges.size})") },
-                    modifier = Modifier.weight(1f),
-                )
-                FilterChip(
-                    selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 },
-                    label = { Text("Ödənişlər (${payments.size})") },
-                    modifier = Modifier.weight(1f),
-                )
-            }
-
-            // Content
-            if (selectedTab == 0 && charges.isNotEmpty()) {
-                charges.take(5).forEach { charge ->
-                    ChargeCard(charge)
+        if (sortedCharges.isEmpty()) {
+            Text(
+                "Hələ heç bir haqq yaranmayıb.",
+                fontSize = 13.sp,
+                color = DetailColors.Muted,
+            )
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                sortedCharges.forEach { charge ->
+                    // The web's ChargesTable prints the "Əmlak" column whenever the
+                    // charge carries an apartment/garage id — same here.
+                    ChargeCard(charge, showProperty = true) { onChargeClick(charge) }
                 }
-                if (charges.size > 5) {
-                    Text(
-                        "+ ${charges.size - 5} daha",
-                        fontSize = 12.sp,
-                        color = ExtColors.Muted,
-                        modifier = Modifier.align(Alignment.CenterHorizontally),
-                    )
-                }
-            } else if (selectedTab == 1 && payments.isNotEmpty()) {
-                payments.take(5).forEach { payment ->
-                    PaymentCard(payment)
-                }
-                if (payments.size > 5) {
-                    Text(
-                        "+ ${payments.size - 5} daha",
-                        fontSize = 12.sp,
-                        color = ExtColors.Muted,
-                        modifier = Modifier.align(Alignment.CenterHorizontally),
-                    )
-                }
-            } else {
-                Text(
-                    if (selectedTab == 0) "Borc yoxdur" else "Ödəniş yoxdur",
-                    fontSize = 13.sp,
-                    color = ExtColors.Muted,
-                )
             }
         }
     }
 }
 
 @Composable
-private fun ChargeCard(charge: ChargeDto) {
+internal fun ChargeCard(
+    charge: ChargeDto,
+    showProperty: Boolean = false,
+    onClick: () -> Unit,
+) {
+    val statusColor = chargeStatusColor(charge.status)
+    val remaining = (charge.amount ?: 0.0) - (charge.paidAmount ?: 0.0)
+
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = ExtColors.Surface),
-        border = BorderStroke(1.dp, ExtColors.Border),
+        colors = CardDefaults.cardColors(containerColor = DetailColors.Surface),
+        border = BorderStroke(1.dp, DetailColors.Border),
     ) {
         Column(
             modifier = Modifier
@@ -259,7 +296,6 @@ private fun ChargeCard(charge: ChargeDto) {
                 .padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            // Header: Description + Status
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -269,35 +305,33 @@ private fun ChargeCard(charge: ChargeDto) {
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
+                    if (showProperty && !charge.propertyLabel.isNullOrBlank()) {
+                        Text(
+                            charge.propertyLabel,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = DetailColors.Terracotta,
+                        )
+                    }
                     Text(
-                        formatChargeDescription(charge),
+                        chargeDescription(charge),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = ExtColors.Ink,
+                        color = DetailColors.Ink,
                     )
                     Text(
-                        formatDate(charge.createdAt),
+                        text = Format.dateTime(charge.createdAt),
                         fontSize = 11.sp,
-                        color = ExtColors.Muted,
+                        color = DetailColors.Muted,
                     )
                 }
 
-                val statusColor = when (charge.status) {
-                    2 -> ExtColors.Olive // Paid
-                    1 -> Color(0xFFFF9800) // PartiallyPaid
-                    else -> ExtColors.Error // Unpaid
-                }
-                val statusText = when (charge.status) {
-                    2 -> "Ödənilib"
-                    1 -> "Qismən"
-                    else -> "Ödənməyib"
-                }
                 Surface(
                     shape = RoundedCornerShape(6.dp),
                     color = statusColor.copy(alpha = 0.12f),
                 ) {
                     Text(
-                        statusText,
+                        Format.chargeStatus(charge.status),
                         fontSize = 10.sp,
                         color = statusColor,
                         fontWeight = FontWeight.Bold,
@@ -306,186 +340,54 @@ private fun ChargeCard(charge: ChargeDto) {
                 }
             }
 
-            HorizontalDivider(color = ExtColors.Border)
+            HorizontalDivider(color = DetailColors.Border)
 
-            // Financial details - 3 columns
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                // Məbləğ
-                Column(
-                    horizontalAlignment = Alignment.Start,
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text("Məbləğ", fontSize = 10.sp, color = DetailColors.Muted)
                     Text(
-                        "Məbləğ",
-                        fontSize = 10.sp,
-                        color = ExtColors.Muted,
-                    )
-                    Text(
-                        String.format("%.2f ₼", charge.amount ?: 0.0),
+                        money(charge.amount),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
-                        color = ExtColors.Ink,
+                        color = DetailColors.Ink,
                     )
                 }
 
-                // Ödənilib
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
+                    Text("Ödənilib", fontSize = 10.sp, color = DetailColors.Muted)
                     Text(
-                        "Ödənilib",
-                        fontSize = 10.sp,
-                        color = ExtColors.Muted,
-                    )
-                    val paidAmount = charge.paidAmount ?: 0.0
-                    Text(
-                        String.format("%.2f ₼", paidAmount),
+                        money(charge.paidAmount),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (paidAmount > 0.01) ExtColors.Olive else ExtColors.Muted,
+                        color = if ((charge.paidAmount ?: 0.0) > 0.005) DetailColors.Olive else DetailColors.Muted,
                     )
                 }
 
-                // Qalıq borc
                 Column(
                     horizontalAlignment = Alignment.End,
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
+                    Text("Qalıq borc", fontSize = 10.sp, color = DetailColors.Muted)
                     Text(
-                        "Qalıq borc",
-                        fontSize = 10.sp,
-                        color = ExtColors.Muted,
-                    )
-                    val remaining = (charge.amount ?: 0.0) - (charge.paidAmount ?: 0.0)
-                    Text(
-                        String.format("%.2f ₼", remaining),
+                        money(remaining),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (remaining > 0.01) ExtColors.Error else ExtColors.Olive,
+                        color = if (remaining > 0.005) DetailColors.Error else DetailColors.Olive,
                     )
                 }
             }
+
+            Text(
+                "Təfərrüat üçün toxunun",
+                fontSize = 10.sp,
+                color = DetailColors.MutedSoft,
+            )
         }
-    }
-    Spacer(Modifier.height(10.dp))
-}
-
-private fun formatChargeDescription(charge: ChargeDto): String {
-    val rateType = charge.rateType
-    val period = charge.period ?: "—"
-
-    if (rateType == 0 && charge.areaSquareMeters != null && charge.rateAmount != null) {
-        // PerSquareMeter
-        return "Aylıq mənzil haqqı ($period): ${charge.areaSquareMeters.toInt()} m² × ${String.format("%.2f", charge.rateAmount)} ₼/m²"
-    }
-    if (rateType == 1 && charge.rateAmount != null) {
-        // FixedGarage
-        return "Aylıq qaraj haqqı ($period): sabit ${String.format("%.2f", charge.rateAmount)} ₼"
-    }
-    // Manual charge
-    return charge.description ?: "Haqq ($period)"
-}
-
-@Composable
-private fun PaymentCard(payment: PaymentDto) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = ExtColors.Surface),
-        border = BorderStroke(1.dp, ExtColors.Olive.copy(alpha = 0.3f)),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        when (payment.paymentMethod) {
-                            0 -> Icons.Default.Money
-                            1 -> Icons.Default.AccountBalance
-                            2 -> Icons.Default.CreditCard
-                            else -> Icons.Default.Payment
-                        },
-                        null,
-                        tint = ExtColors.Olive,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    val method = when (payment.paymentMethod) {
-                        0 -> "Nəğd ödəniş"
-                        1 -> "Bank köçürməsi"
-                        2 -> "Kart ilə"
-                        else -> "Ödəniş"
-                    }
-                    Text(
-                        method,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = ExtColors.Ink,
-                    )
-                }
-                Text(
-                    formatDate(payment.paymentDate),
-                    fontSize = 11.sp,
-                    color = ExtColors.Muted,
-                )
-                if (!payment.notes.isNullOrBlank()) {
-                    Text(
-                        payment.notes,
-                        fontSize = 11.sp,
-                        color = ExtColors.Muted,
-                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                    )
-                }
-            }
-
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(
-                    String.format("+%.2f ₼", payment.amount ?: 0.0),
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = ExtColors.Olive,
-                )
-                val statusText = when (payment.status) {
-                    1 -> "Tamamlandı"
-                    0 -> "Gözləyir"
-                    else -> "—"
-                }
-                Text(
-                    statusText,
-                    fontSize = 10.sp,
-                    color = ExtColors.Olive,
-                )
-            }
-        }
-    }
-    Spacer(Modifier.height(10.dp))
-}
-
-private fun formatDate(dateStr: String?): String {
-    if (dateStr == null) return "—"
-    return try {
-        val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
-        val outputFormat = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
-        val date = inputFormat.parse(dateStr)
-        date?.let { outputFormat.format(it) } ?: dateStr
-    } catch (e: Exception) {
-        dateStr.substringBefore('T')
     }
 }

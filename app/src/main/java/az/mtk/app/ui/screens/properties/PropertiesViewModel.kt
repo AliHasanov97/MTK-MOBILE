@@ -11,18 +11,24 @@ import kotlinx.coroutines.launch
 
 class PropertiesViewModel : ViewModel() {
     private val buildingsApi = AppGraph.service(BuildingsApi::class.java)
+    private val service = AppGraph.service(MtkService::class.java)
 
     data class UiState(
         val loading: Boolean = true,
         val properties: List<PropertyItem> = emptyList(),
         val stats: PropertyStatsData = PropertyStatsData(),
         val error: String? = null,
-        val selectedTab: PropertyTabType = PropertyTabType.ALL,
+        val selectedTab: PropertyTabType = PropertyTabType.APARTMENTS,
         val searchQuery: String = "",
         val availableBuildings: List<FilterOption> = emptyList(),
         val availableFloors: List<Int> = emptyList(),
         val availableRooms: List<Int> = emptyList(),
         val filters: PropertyFilters = PropertyFilters(),
+        // Sakinlər (owners) tab — separate paged endpoint, loaded on demand.
+        val residents: List<OwnerItemDto> = emptyList(),
+        val residentsTotal: Int = 0,
+        val residentsLoading: Boolean = false,
+        val residentsError: String? = null,
     )
 
     private val _state = MutableStateFlow(UiState())
@@ -34,7 +40,9 @@ class PropertiesViewModel : ViewModel() {
 
     fun load() {
         viewModelScope.launch {
-            _state.value = UiState(loading = true)
+            // Tab/arama və filtrləri saxlayırıq — ekrana qayıdanda istifadəçi
+            // yenidən "Mənzillər"ə atılmır.
+            _state.value = _state.value.copy(loading = true, error = null)
 
             try {
                 // Load apartments
@@ -51,9 +59,6 @@ class PropertiesViewModel : ViewModel() {
 
                 // Calculate stats
                 val stats = calculateStats(allApartments, allGarages)
-
-                // Convert to UI items
-                val properties = combineProperties(allApartments, allGarages)
 
                 // Extract filter options
                 val buildings = allApartments
@@ -78,13 +83,18 @@ class PropertiesViewModel : ViewModel() {
 
                 _state.value = _state.value.copy(
                     loading = false,
-                    properties = properties,
                     stats = stats,
                     error = null,
                     availableBuildings = buildings,
                     availableFloors = floors,
                     availableRooms = rooms,
                 )
+
+                // Seçilmiş tab və axtarış/filtr tətbiq olunur.
+                applyFilters()
+
+                // Sakinlər tabının sayı dərhal görünsün deyə ilk səhifəni əvvəlcədən yükləyirik.
+                loadResidents()
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     loading = false,
@@ -97,6 +107,28 @@ class PropertiesViewModel : ViewModel() {
     fun setTab(tab: PropertyTabType) {
         _state.value = _state.value.copy(selectedTab = tab)
         applyFilters()
+        if (tab == PropertyTabType.RESIDENTS) loadResidents()
+    }
+
+    /** Loads the owners list shown in the "Sakinlər" tab (first page). */
+    fun loadResidents(force: Boolean = false) {
+        val state = _state.value
+        if (state.residentsLoading) return
+        if (!force && state.residents.isNotEmpty()) return
+
+        viewModelScope.launch {
+            _state.value = _state.value.copy(residentsLoading = true, residentsError = null)
+            val page = runCatching {
+                service.owners(SearchBody(page = 0, pageSize = 200)).data
+            }.getOrNull()
+
+            _state.value = _state.value.copy(
+                residents = page?.items.orEmpty(),
+                residentsTotal = page?.totalCount ?: 0,
+                residentsLoading = false,
+                residentsError = if (page == null) "Sakinləri yükləmək mümkün olmadı." else null,
+            )
+        }
     }
 
     fun setSearchQuery(query: String) {
@@ -165,9 +197,10 @@ class PropertiesViewModel : ViewModel() {
         val filtered = allProperties.filter { property ->
             // Tab filter
             val matchesTab = when (tab) {
-                PropertyTabType.ALL -> true
                 PropertyTabType.APARTMENTS -> property.type == PropertyItemType.APARTMENT
                 PropertyTabType.GARAGES -> property.type == PropertyItemType.GARAGE
+                // Sakinlər tabı əmlak siyahısını deyil, ayrı sakin siyahısını göstərir.
+                PropertyTabType.RESIDENTS -> false
             }
 
             // Search filter
@@ -331,9 +364,9 @@ data class PropertyStatsData(
 )
 
 enum class PropertyTabType {
-    ALL,
     APARTMENTS,
     GARAGES,
+    RESIDENTS,
 }
 
 enum class PropertyItemType {

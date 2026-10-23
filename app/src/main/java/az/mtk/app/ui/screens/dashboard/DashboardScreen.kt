@@ -180,12 +180,12 @@ class DashboardViewModel : ViewModel() {
                 balance = runCatching { ownerApi.ownerBalance(owner.id).data }.getOrNull(),
             )
             _state.value = _state.value.copy(
-                charges = runCatching { ownerApi.chargesByOwner(owner.id).data?.charges }
+                charges = runCatching { ownerApi.chargesByOwner(owner.id).data.orEmpty() }
                     .getOrNull()
                     .orEmpty(),
             )
             _state.value = _state.value.copy(
-                payments = runCatching { ownerApi.paymentsByOwner(owner.id).data?.payments }
+                payments = runCatching { ownerApi.paymentsByOwner(owner.id).data.orEmpty() }
                     .getOrNull()
                     .orEmpty(),
             )
@@ -232,6 +232,13 @@ fun DashboardScreen(
     onLogout: () -> Unit,
     onOpenContact: () -> Unit,
     onOpenProperties: () -> Unit = {},
+    onOpenInventory: () -> Unit = {},
+    onOpenOperations: () -> Unit = {},
+    onOpenTransactions: () -> Unit = {},
+    onOpenReports: () -> Unit = {},
+    onOpenAppeals: (Boolean) -> Unit = {},
+    onOpenIdentity: () -> Unit = {},
+    onOpenNews: () -> Unit = {},
     viewModel: DashboardViewModel = mtkViewModel { DashboardViewModel() },
 ) {
     val uiState by viewModel.state.collectAsStateWithLifecycle()
@@ -294,90 +301,104 @@ fun DashboardScreen(
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .onGloballyPositioned { containerTop = it.positionInWindow().y }
-                    .verticalScroll(scrollState),
-            ) {
-                HeroPanel(
-                    profile = profile,
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Sabit başlıq: səhifə aşağı sürüşdürülsə də yuxarıda qalır.
+                DashboardTopBar(
                     owner = uiState.owner,
-                    balance = uiState.balance,
                     onBack = onBack,
                     onLogout = onLogout,
-                    onOpenAccount = { openAccountConsole(context) },
                 )
 
                 Column(
-                    modifier = Modifier.padding(horizontal = 20.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .onGloballyPositioned { containerTop = it.positionInWindow().y }
+                        .verticalScroll(scrollState),
                 ) {
-                    Spacer(Modifier.height(6.dp))
-
-                    SectionHead(
-                        title = "İdarəetmə Modulları",
-                        subtitle = "Rolunuza uyğun aktiv sistem bölmələri",
-                        onRefresh = viewModel::load,
-                        modifier = anchor(modulesAnchor),
+                    HeroPanel(
+                        profile = profile,
+                        owner = uiState.owner,
+                        balance = uiState.balance,
+                        onOpenAccount = { openAccountConsole(context) },
                     )
-                    ModuleGrid(
-                        modules = modulesForRoles(profile.roles),
-                        onModuleClick = { module ->
-                            when (module.key) {
-                                "buildings" -> onOpenProperties()
-                                else -> scope.launch {
-                                    snackbarHostState.showSnackbar(
-                                        "«${module.label}» modulu mobil tətbiqdə hələ hazırlanmayıb."
+
+                    Column(
+                        modifier = Modifier.padding(horizontal = 20.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Spacer(Modifier.height(6.dp))
+
+                        SectionHead(
+                            title = "İdarəetmə Modulları",
+                            subtitle = "Rolunuza uyğun aktiv sistem bölmələri",
+                            onRefresh = viewModel::load,
+                            modifier = anchor(modulesAnchor),
+                        )
+                        ModuleGrid(
+                            modules = modulesForRoles(profile.roles),
+                            onModuleClick = { module ->
+                                when (module.key) {
+                                    "buildings" -> onOpenProperties()
+                                    "inventory" -> onOpenInventory()
+                                    "operations" -> onOpenOperations()
+                                    "transactions" -> onOpenTransactions()
+                                    "reports" -> onOpenReports()
+                                    "appeals" -> onOpenAppeals(false)
+                                    "identity" -> onOpenIdentity()
+                                    "news" -> onOpenNews()
+                                    else -> scope.launch {
+                                        snackbarHostState.showSnackbar(
+                                            "«${module.label}» modulu mobil tətbiqdə hələ hazırlanmayıb."
+                                        )
+                                    }
+                                }
+                            },
+                        )
+
+                        Spacer(Modifier.height(10.dp))
+
+                        when {
+                            uiState.loading -> LoadingBlock()
+                            uiState.error != null -> ErrorCard(uiState.error!!, onRetry = viewModel::load)
+                            else -> {
+                                // Resident sections only exist for accounts that own property;
+                                // staff see just the module grid and the account actions.
+                                val owner = uiState.owner
+                                val hasProperties = owner != null &&
+                                    (owner.apartments.orEmpty().isNotEmpty() ||
+                                        owner.garages.orEmpty().isNotEmpty())
+
+                                if (hasProperties) {
+                                    SectionHead(
+                                        title = "Mənim əmlakım",
+                                        subtitle = "Mənzil və qarajlarınız",
                                     )
+                                    PropertyGrid(owner)
+                                    Spacer(Modifier.height(10.dp))
+                                }
+
+                                if (uiState.charges.isNotEmpty()) {
+                                    SectionHead(
+                                        title = "Son hesablamalar",
+                                        subtitle = "Ən son ${minOf(uiState.charges.size, 5)} qeyd",
+                                        modifier = anchor(paymentsAnchor),
+                                    )
+                                    ChargesCard(uiState.charges)
+                                    Spacer(Modifier.height(10.dp))
+                                }
+
+                                if (uiState.payments.isNotEmpty()) {
+                                    SectionHead(
+                                        title = "Son ödənişlər",
+                                        subtitle = "Ən son ${minOf(uiState.payments.size, 5)} qeyd",
+                                    )
+                                    PaymentsCard(uiState.payments)
                                 }
                             }
-                        },
-                    )
-
-                    Spacer(Modifier.height(10.dp))
-
-                    when {
-                        uiState.loading -> LoadingBlock()
-                        uiState.error != null -> ErrorCard(uiState.error!!, onRetry = viewModel::load)
-                        else -> {
-                            // Resident sections only exist for accounts that own property;
-                            // staff see just the module grid and the account actions.
-                            val owner = uiState.owner
-                            val hasProperties = owner != null &&
-                                (owner.apartments.orEmpty().isNotEmpty() ||
-                                    owner.garages.orEmpty().isNotEmpty())
-
-                            if (hasProperties) {
-                                SectionHead(
-                                    title = "Mənim əmlakım",
-                                    subtitle = "Mənzil və qarajlarınız",
-                                )
-                                PropertyGrid(owner)
-                                Spacer(Modifier.height(10.dp))
-                            }
-
-                            if (uiState.charges.isNotEmpty()) {
-                                SectionHead(
-                                    title = "Son hesablamalar",
-                                    subtitle = "Ən son ${minOf(uiState.charges.size, 5)} qeyd",
-                                    modifier = anchor(paymentsAnchor),
-                                )
-                                ChargesCard(uiState.charges)
-                                Spacer(Modifier.height(10.dp))
-                            }
-
-                            if (uiState.payments.isNotEmpty()) {
-                                SectionHead(
-                                    title = "Son ödənişlər",
-                                    subtitle = "Ən son ${minOf(uiState.payments.size, 5)} qeyd",
-                                )
-                                PaymentsCard(uiState.payments)
-                            }
                         }
-                    }
 
-                    Spacer(Modifier.height(96.dp).navigationBarsPadding())
+                        Spacer(Modifier.height(96.dp).navigationBarsPadding())
+                    }
                 }
             }
 
@@ -393,6 +414,9 @@ fun DashboardScreen(
                         "home" -> scope.launch { scrollState.animateScrollTo(0) }
                         "contact" -> onOpenContact()
                         "manage_buildings" -> onOpenProperties()
+                        "view_reports" -> onOpenReports()
+                        "manage_appeals" -> onOpenAppeals(false)
+                        "create_appeal" -> onOpenAppeals(true)
                         else -> {
                             // Show "not implemented yet" message for other actions
                             scope.launch {
@@ -408,6 +432,76 @@ fun DashboardScreen(
     }
 }
 
+/* ---------- Fixed header ---------- */
+
+@Composable
+private fun DashboardTopBar(
+    owner: OprOwner?,
+    onBack: () -> Unit,
+    onLogout: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Civic.ForestDeep)
+            .statusBarsPadding()
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        HeroIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Geri", onBack)
+
+        Row(
+            modifier = Modifier
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.15f))
+                .padding(horizontal = 12.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Default.VerifiedUser,
+                contentDescription = null,
+                tint = Civic.TerracottaVivid,
+                modifier = Modifier.size(14.dp),
+            )
+            Text(
+                text = "SAKİN",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.6.sp,
+                color = Color.White,
+            )
+        }
+
+        Spacer(Modifier.weight(1f))
+
+        Row(
+            modifier = Modifier
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.15f))
+                .padding(horizontal = 12.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(Civic.Lime),
+            )
+            Text(
+                text = if (owner == null || owner.isActive) "Aktiv" else "Deaktiv",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+            )
+        }
+
+        HeroIconButton(Icons.AutoMirrored.Filled.ExitToApp, "Çıxış", onLogout)
+    }
+}
+
 /* ---------- Hero ---------- */
 
 @Composable
@@ -415,8 +509,6 @@ private fun HeroPanel(
     profile: UserProfile,
     owner: OprOwner?,
     balance: OprOwnerBalanceResponse?,
-    onBack: () -> Unit,
-    onLogout: () -> Unit,
     onOpenAccount: () -> Unit,
 ) {
     Box(
@@ -430,67 +522,7 @@ private fun HeroPanel(
             )
             .padding(bottom = 22.dp),
     ) {
-        Column(Modifier.statusBarsPadding()) {
-            // Status chips + escape actions
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                HeroIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Geri", onBack)
-
-                Row(
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.15f))
-                        .padding(horizontal = 12.dp, vertical = 5.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.VerifiedUser,
-                        contentDescription = null,
-                        tint = Civic.TerracottaVivid,
-                        modifier = Modifier.size(14.dp),
-                    )
-                    Text(
-                        text = "SAKİN",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.6.sp,
-                        color = Color.White,
-                    )
-                }
-
-                Spacer(Modifier.weight(1f))
-
-                Row(
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.15f))
-                        .padding(horizontal = 12.dp, vertical = 5.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .clip(CircleShape)
-                            .background(Civic.Lime),
-                    )
-                    Text(
-                        text = if (owner == null || owner.isActive) "Aktiv" else "Deaktiv",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                    )
-                }
-
-                HeroIconButton(Icons.AutoMirrored.Filled.ExitToApp, "Çıxış", onLogout)
-            }
-
+        Column(Modifier.padding(top = 8.dp)) {
             // Avatar, name, roles
             Row(
                 modifier = Modifier
@@ -1029,7 +1061,7 @@ private fun ModuleTile(
 
 private fun moduleAccent(key: String): Color = when (key) {
     "operations", "transactions", "reports", "rates" -> Civic.Terracotta
-    "buildings", "inventory", "appeals", "profile" -> Civic.Olive
+    "buildings", "inventory", "appeals", "identity", "news", "profile" -> Civic.Olive
     else -> Civic.Muted
 }
 

@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -26,8 +27,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import az.mtk.app.data.api.OwnerItemDto
+import az.mtk.app.ui.components.AppSheetDialog
 import az.mtk.app.ui.mtkViewModel
 import az.mtk.app.ui.theme.MtkColors
+import az.mtk.app.util.Format
 
 private object PropertyColors {
     val Background = Color(0xFFFAFAF8)
@@ -54,6 +58,7 @@ private object PropertyColors {
 fun PropertiesScreen(
     onBack: () -> Unit,
     onPropertyClick: (propertyId: String, propertyType: PropertyType) -> Unit,
+    onResidentClick: (residentId: String) -> Unit = {},
     viewModel: PropertiesViewModel = mtkViewModel { PropertiesViewModel() },
 ) {
     val uiState by viewModel.state.collectAsStateWithLifecycle()
@@ -109,22 +114,25 @@ fun PropertiesScreen(
                     }
                 },
                 actions = {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(PropertyColors.Container)
-                            .clickable { showFilterDialog = true },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            Icons.Default.FilterList,
-                            "Filter",
-                            tint = PropertyColors.Terracotta,
-                            modifier = Modifier.size(20.dp),
-                        )
+                    // Filtr yalnız əmlak siyahılarına aiddir — Sakinlər tabında gizlədilir.
+                    if (uiState.selectedTab != PropertyTabType.RESIDENTS) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(PropertyColors.Container)
+                                .clickable { showFilterDialog = true },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                Icons.Default.FilterList,
+                                "Filter",
+                                tint = PropertyColors.Terracotta,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                        Spacer(Modifier.width(8.dp))
                     }
-                    Spacer(Modifier.width(8.dp))
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = PropertyColors.Background,
@@ -146,7 +154,11 @@ fun PropertiesScreen(
                     .padding(horizontal = 20.dp, vertical = 12.dp),
                 placeholder = {
                     Text(
-                        "Axtar (bina, mənzil, sahib, qaraj…)",
+                        if (uiState.selectedTab == PropertyTabType.RESIDENTS) {
+                            "Axtar (ad, e-poçt, telefon…)"
+                        } else {
+                            "Axtar (bina, mənzil, sahib, qaraj…)"
+                        },
                         color = PropertyColors.MutedSoft,
                         fontSize = 14.sp,
                     )
@@ -172,20 +184,21 @@ fun PropertiesScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
                     .padding(horizontal = 20.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 PropertyTab.entries.forEach { tab ->
                     val tabType = when (tab) {
-                        PropertyTab.ALL -> PropertyTabType.ALL
                         PropertyTab.APARTMENTS -> PropertyTabType.APARTMENTS
                         PropertyTab.GARAGES -> PropertyTabType.GARAGES
+                        PropertyTab.RESIDENTS -> PropertyTabType.RESIDENTS
                     }
                     val selected = uiState.selectedTab == tabType
                     val count = when (tab) {
-                        PropertyTab.ALL -> stats.totalApartments + stats.totalGarages
                         PropertyTab.APARTMENTS -> stats.totalApartments
                         PropertyTab.GARAGES -> stats.totalGarages
+                        PropertyTab.RESIDENTS -> uiState.residentsTotal
                     }
 
                     Surface(
@@ -224,13 +237,23 @@ fun PropertiesScreen(
                 }
             }
 
-            // Stats row
-            StatsRow(stats)
+            // Stats row — yalnız əmlak tablarında (Sakinlər tabında əmlak statistikası yersizdir).
+            if (uiState.selectedTab != PropertyTabType.RESIDENTS) {
+                StatsRow(stats)
+            }
 
-            // Properties list
             when {
-                uiState.loading -> LoadingState()
-                uiState.error != null -> ErrorState(uiState.error ?: "") { viewModel.load() }
+                uiState.selectedTab == PropertyTabType.RESIDENTS -> ResidentsContent(
+                    residents = uiState.residents,
+                    query = uiState.searchQuery,
+                    loading = uiState.residentsLoading,
+                    error = uiState.residentsError,
+                    onRetry = { viewModel.loadResidents(force = true) },
+                    onResidentClick = onResidentClick,
+                )
+
+                uiState.loading -> PropertiesLoadingState()
+                uiState.error != null -> PropertiesErrorState(uiState.error ?: "") { viewModel.load() }
                 properties.isEmpty() -> EmptyState()
                 else -> {
                     LazyColumn(
@@ -256,6 +279,193 @@ fun PropertiesScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+// ------------------------------------------------------------- sakinlər
+
+@Composable
+private fun ResidentsContent(
+    residents: List<OwnerItemDto>,
+    query: String,
+    loading: Boolean,
+    error: String?,
+    onRetry: () -> Unit,
+    onResidentClick: (String) -> Unit,
+) {
+    val filtered = remember(residents, query) {
+        val term = query.trim().lowercase()
+        if (term.isEmpty()) {
+            residents
+        } else {
+            residents.filter { resident ->
+                resident.fullName?.lowercase()?.contains(term) == true ||
+                    resident.email?.lowercase()?.contains(term) == true ||
+                    resident.phoneNumber?.contains(term) == true
+            }
+        }
+    }
+
+    when {
+        loading && residents.isEmpty() -> Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            CircularProgressIndicator(color = PropertyColors.Terracotta)
+        }
+
+        error != null && residents.isEmpty() -> Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(32.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(error, fontSize = 14.sp, color = PropertyColors.Muted)
+                Button(
+                    onClick = onRetry,
+                    colors = ButtonDefaults.buttonColors(containerColor = PropertyColors.Terracotta),
+                ) {
+                    Text("Yenidən cəhd et")
+                }
+            }
+        }
+
+        filtered.isEmpty() -> Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(32.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = if (query.isBlank()) "Hələ sakin qeydə alınmayıb." else "Nəticə tapılmadı.",
+                fontSize = 14.sp,
+                color = PropertyColors.Muted,
+            )
+        }
+
+        else -> LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            items(items = filtered, key = { it.id }) { resident ->
+                ResidentCard(resident) { onResidentClick(resident.id) }
+            }
+            if (loading) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
+                            strokeWidth = 2.dp,
+                            color = PropertyColors.Terracotta,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ResidentCard(resident: OwnerItemDto, onClick: () -> Unit) {
+    val name = resident.fullName?.takeIf { it.isNotBlank() } ?: "Adsız sakin"
+    val active = resident.isActive != false
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = PropertyColors.Surface),
+        border = BorderStroke(1.dp, PropertyColors.Border),
+        onClick = onClick,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(CircleShape)
+                    .background(PropertyColors.Container),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = Format.initials(name),
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = PropertyColors.Terracotta,
+                )
+            }
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
+                Text(
+                    text = name,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = PropertyColors.Ink,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = resident.email?.takeIf { it.isNotBlank() } ?: "—",
+                    fontSize = 12.sp,
+                    color = PropertyColors.Muted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = buildString {
+                        append(resident.phoneNumber?.takeIf { it.isNotBlank() } ?: "—")
+                        append(" · ")
+                        append(if (resident.userId != null) "Qeydiyyatlı istifadəçi" else "Passiv sahib")
+                    },
+                    fontSize = 11.sp,
+                    color = PropertyColors.MutedSoft,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                val accent = if (active) PropertyColors.Olive else PropertyColors.MutedSoft
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = accent.copy(alpha = 0.12f),
+                ) {
+                    Text(
+                        text = if (active) "Aktiv" else "Deaktiv",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = accent,
+                    )
+                }
+                Icon(
+                    Icons.Default.ChevronRight,
+                    null,
+                    tint = PropertyColors.MutedSoft.copy(alpha = 0.6f),
+                    modifier = Modifier.size(18.dp),
+                )
             }
         }
     }
@@ -475,7 +685,7 @@ private fun PropertyBadge(badge: PropertyBadgeItem) {
 }
 
 @Composable
-private fun LoadingState() {
+private fun PropertiesLoadingState() {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -500,7 +710,7 @@ private fun LoadingState() {
 }
 
 @Composable
-private fun ErrorState(error: String, onRetry: () -> Unit) {
+private fun PropertiesErrorState(error: String, onRetry: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -579,9 +789,9 @@ private fun EmptyState() {
 // ---- Data models ----
 
 enum class PropertyTab(val label: String) {
-    ALL("Hamısı"),
     APARTMENTS("Mənzillər"),
     GARAGES("Qarajlar"),
+    RESIDENTS("Sakinlər"),
 }
 
 enum class PropertyType {
@@ -606,7 +816,7 @@ private fun FilterDialog(
     var hasOwnerOnly by remember { mutableStateOf(currentFilters.hasOwnerOnly) }
     val scrollState = rememberScrollState()
 
-    AlertDialog(
+    AppSheetDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             Button(
