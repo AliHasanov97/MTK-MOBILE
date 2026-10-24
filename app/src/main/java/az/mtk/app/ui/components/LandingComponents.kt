@@ -1,8 +1,10 @@
 package az.mtk.app.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -15,12 +17,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import az.mtk.app.ui.theme.MtkColors
+import az.mtk.app.ui.theme.Civic
 
 /**
- * Statistics card component
+ * Statistics tile — hairline card in the Civic Hearth language.
  */
 @Composable
 fun StatCard(
@@ -32,44 +35,51 @@ fun StatCard(
 ) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Civic.Surface),
+        border = BorderStroke(1.dp, Civic.Border),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.Start,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = label,
-                tint = MtkColors.Primary,
-                modifier = Modifier.size(24.dp)
-            )
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Civic.Terracotta.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = label,
+                    tint = Civic.Terracotta,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
             Row(
                 verticalAlignment = Alignment.Bottom,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
                     text = value,
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = (-0.4).sp,
+                    color = Civic.Ink
                 )
                 Text(
                     text = unit,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 2.dp)
+                    fontSize = 12.sp,
+                    color = Civic.MutedSoft,
+                    modifier = Modifier.padding(bottom = 3.dp)
                 )
             }
             Text(
                 text = label,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                fontSize = 12.sp,
+                color = Civic.MutedSoft
             )
         }
     }
@@ -83,31 +93,29 @@ fun FeatureCard(
     icon: ImageVector,
     title: String,
     description: String,
-    iconTint: Color = MtkColors.Primary,
-    iconBackground: Color = MtkColors.Primary.copy(alpha = 0.1f),
+    iconTint: Color = Civic.Terracotta,
+    iconBackground: Color = Civic.Terracotta.copy(alpha = 0.12f),
     onClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Card(
         modifier = modifier.clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Civic.Surface),
+        border = BorderStroke(1.dp, Civic.Border),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(14.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Icon box
             Box(
                 modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .size(38.dp)
+                    .clip(RoundedCornerShape(12.dp))
                     .background(iconBackground),
                 contentAlignment = Alignment.Center
             ) {
@@ -115,42 +123,44 @@ fun FeatureCard(
                     imageVector = icon,
                     contentDescription = title,
                     tint = iconTint,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(19.dp)
                 )
             }
 
-            // Content
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(3.dp)
             ) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Civic.Ink,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    lineHeight = 18.sp
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp,
+                    color = Civic.MutedSoft,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
 
-            // Arrow
             Icon(
                 imageVector = Icons.Default.ChevronRight,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp)
+                tint = Civic.MutedSoft.copy(alpha = 0.6f),
+                modifier = Modifier.size(18.dp)
             )
         }
     }
 }
 
 /**
- * News card component
+ * News card component — paper card with a hairline border, like the panel lists.
  */
 @Composable
 fun NewsCard(
@@ -165,48 +175,45 @@ fun NewsCard(
 ) {
     Card(
         modifier = modifier.clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Civic.Surface),
+        border = BorderStroke(1.dp, Civic.Border),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Category and date
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Category badge
                 Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = categoryColor.copy(alpha = 0.15f)
+                    shape = CircleShape,
+                    color = categoryColor.copy(alpha = 0.12f)
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(5.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(6.dp)
-                                .clip(RoundedCornerShape(3.dp))
+                                .size(5.dp)
+                                .clip(CircleShape)
                                 .background(categoryColor)
                         )
                         Text(
                             text = category,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.4.sp,
                             color = categoryColor
                         )
                     }
                 }
 
-                // Date
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -214,63 +221,70 @@ fun NewsCard(
                     Icon(
                         imageVector = Icons.Default.CalendarToday,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(12.dp)
+                        tint = Civic.MutedSoft,
+                        modifier = Modifier.size(11.dp)
                     )
                     Text(
                         text = date,
                         fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = Civic.MutedSoft
                     )
                 }
             }
 
-            // Title
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
+                fontSize = 15.sp,
+                lineHeight = 21.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = (-0.2).sp,
+                color = Civic.Ink,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
 
-            // Description
             Text(
                 text = description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp,
                 lineHeight = 18.sp,
-                maxLines = 3
+                color = Civic.MutedSoft,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
             )
 
-            // Read more
+            HorizontalDivider(thickness = 1.dp, color = Civic.Border)
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                TextButton(
-                    onClick = onClick,
-                    contentPadding = PaddingValues(0.dp)
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Civic.Container)
+                        .padding(horizontal = 10.dp, vertical = 5.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = "Ətraflı oxu",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MtkColors.Primary
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Civic.Terracotta
                     )
-                    Spacer(Modifier.width(4.dp))
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = null,
-                        tint = MtkColors.Primary,
-                        modifier = Modifier.size(16.dp)
+                        tint = Civic.Terracotta,
+                        modifier = Modifier.size(13.dp)
                     )
                 }
 
                 Text(
                     text = "Təxmini oxuma: $readTime",
                     fontSize = 10.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = Civic.MutedSoft
                 )
             }
         }
@@ -278,7 +292,8 @@ fun NewsCard(
 }
 
 /**
- * Section header component
+ * Section header component — bold title over a muted subtitle, with an optional
+ * pill action on the trailing edge.
  */
 @Composable
 fun SectionHeader(
@@ -293,49 +308,47 @@ fun SectionHeader(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .width(3.dp)
-                        .height(20.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(MtkColors.Primary)
-                )
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = title,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = (-0.2).sp,
+                color = Civic.Ink
+            )
             if (subtitle != null) {
                 Text(
                     text = subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 9.dp)
+                    fontSize = 12.sp,
+                    color = Civic.Muted
                 )
             }
         }
 
         if (actionText != null && onActionClick != null) {
-            TextButton(onClick = onActionClick) {
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Civic.Container)
+                    .clickable(onClick = onActionClick)
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
                     text = actionText,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = MtkColors.Primary
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Civic.Terracotta
                 )
-                Spacer(Modifier.width(4.dp))
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                     contentDescription = null,
-                    tint = MtkColors.Primary,
-                    modifier = Modifier.size(16.dp)
+                    tint = Civic.Terracotta,
+                    modifier = Modifier.size(13.dp)
                 )
             }
         }

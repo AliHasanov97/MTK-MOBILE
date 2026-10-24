@@ -1,12 +1,20 @@
 package az.mtk.app.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import az.mtk.app.AppGraph
 import az.mtk.app.data.api.LandingRepository
@@ -31,6 +39,7 @@ import az.mtk.app.ui.screens.properties.PropertyDetailScreen
 import az.mtk.app.ui.screens.properties.PropertyType
 import az.mtk.app.ui.screens.reports.ReportsScreen
 import az.mtk.app.ui.screens.transactions.TransactionsScreen
+import az.mtk.app.ui.theme.Civic
 import kotlinx.coroutines.launch
 
 @Composable
@@ -38,7 +47,11 @@ fun MtkApp() {
     var currentRoute by remember { mutableStateOf(LandingRoutes.HOME) }
     var selectedGuideSlug by remember { mutableStateOf<String?>(null) }
     var selectedArticleId by remember { mutableStateOf<String?>(null) }
-    var showLogin by remember { mutableStateOf(false) }
+    // Landing page is the app's home: there is no separate login screen, the
+    // "Daxil ol" actions open Keycloak directly and the dashboard appears once
+    // the deep link comes back authenticated.
+    var showDashboard by remember { mutableStateOf(false) }
+    var awaitingLogin by remember { mutableStateOf(false) }
     var showProperties by remember { mutableStateOf(false) }
     var selectedPropertyId by remember { mutableStateOf<String?>(null) }
     var selectedPropertyType by remember { mutableStateOf<PropertyType?>(null) }
@@ -72,20 +85,47 @@ fun MtkApp() {
 
     val repository = remember { LandingRepository() }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
 
     val auth = remember { AppGraph.auth }
     val authState by auth.state.collectAsStateWithLifecycle()
     val authenticated = authState as? AuthState.Authenticated
 
-    // System back from the login screen or the dashboard returns to the site.
-    BackHandler(enabled = showLogin && authenticated == null) {
-        auth.cancelLogin()
-        showLogin = false
+    // Opens Keycloak's hosted login page straight from the landing page.
+    fun startKeycloakLogin() {
+        awaitingLogin = true
+        runCatching { context.startActivity(auth.startLogin()) }
+            .onFailure {
+                awaitingLogin = false
+                scope.launch {
+                    snackbarHostState.showSnackbar("Brauzer açıla bilmədi. Yenidən cəhd edin.")
+                }
+            }
     }
 
-    // Separate handler for dashboard back navigation
-    BackHandler(enabled = showLogin && authenticated != null) {
-        showLogin = false
+    // After the az.mtk.app:/oauth2redirect deep link the session becomes
+    // authenticated — that is the moment the dashboard replaces the landing page.
+    LaunchedEffect(authenticated) {
+        if (awaitingLogin && authenticated != null) {
+            awaitingLogin = false
+            showDashboard = true
+        }
+    }
+
+    // Keycloak errors (cancelled flow, state mismatch, expired session) surface
+    // as a snackbar instead of a dedicated login screen.
+    val authMessage = (authState as? AuthState.Unauthenticated)?.message
+    LaunchedEffect(authMessage) {
+        if (!authMessage.isNullOrBlank()) {
+            awaitingLogin = false
+            snackbarHostState.showSnackbar(authMessage)
+        }
+    }
+
+    // System back from the dashboard returns to the site.
+    BackHandler(enabled = showDashboard) {
+        showDashboard = false
         selectedGuideSlug = null
         selectedArticleId = null
         currentRoute = LandingRoutes.HOME
@@ -150,11 +190,15 @@ fun MtkApp() {
 
     Scaffold(
         topBar = {
-            // Hide top bar when showing guide, article detail, or login
-            if (selectedGuideSlug == null && selectedArticleId == null && !showLogin) {
+            // Hide top bar when showing guide, article detail, or the dashboard
+            if (selectedGuideSlug == null && selectedArticleId == null && !showDashboard) {
                 LandingTopBar(
                     companyName = companyName,
-                    onLoginClick = { showLogin = true },
+                    onLoginClick = {
+                        // Signed-in visitors go straight to the panel, everyone
+                        // else to Keycloak — no intermediate login screen.
+                        if (authenticated != null) showDashboard = true else startKeycloakLogin()
+                    },
                     userName = authenticated?.profile?.displayName
                         ?.trim()
                         ?.split(" ")
@@ -162,6 +206,12 @@ fun MtkApp() {
                         ?.takeIf { it.isNotBlank() }
                 )
             }
+        },
+        snackbarHost = {
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.padding(bottom = 84.dp)
+            )
         }
     ) { paddingValues ->
         if (selectedPropertyId != null && selectedPropertyType != null && authenticated != null) {
@@ -332,12 +382,12 @@ fun MtkApp() {
                     selectedOwnerId = residentId
                 },
             )
-        } else if (showLogin && authenticated != null) {
+        } else if (showDashboard && authenticated != null) {
             // Full-screen: the dashboard draws its own status-bar background.
             DashboardScreen(
                 profile = authenticated.profile,
                 onBack = {
-                    showLogin = false
+                    showDashboard = false
                     selectedGuideSlug = null
                     selectedArticleId = null
                     currentRoute = LandingRoutes.HOME
@@ -346,13 +396,13 @@ fun MtkApp() {
                     scope.launch {
                         auth.logout()
                     }
-                    showLogin = false
+                    showDashboard = false
                     selectedGuideSlug = null
                     selectedArticleId = null
                     currentRoute = LandingRoutes.HOME
                 },
                 onOpenContact = {
-                    showLogin = false
+                    showDashboard = false
                     selectedGuideSlug = null
                     selectedArticleId = null
                     currentRoute = LandingRoutes.CONTACT
@@ -387,25 +437,10 @@ fun MtkApp() {
                 },
             )
         } else {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-            ) {
-                // Login form while the user is not signed in yet
-                if (showLogin) {
-                    LoginScreen(
-                        onBack = {
-                            auth.cancelLogin()
-                            showLogin = false
-                            selectedGuideSlug = null
-                            selectedArticleId = null
-                            currentRoute = LandingRoutes.HOME
-                        },
-                        message = (authState as? AuthState.Unauthenticated)?.message,
-                        loading = authState is AuthState.Loading,
-                    )
-                } else if (selectedArticleId != null) {
+            // Detail pages draw their own scaffold (and their own insets), so the
+            // landing scaffold padding must not be applied twice.
+            Box(modifier = Modifier.fillMaxSize()) {
+                if (selectedArticleId != null) {
                     ArticleDetailScreen(
                         articleId = selectedArticleId!!,
                         repository = repository,
@@ -421,38 +456,43 @@ fun MtkApp() {
                         )
                     }
                 } else {
-                    // Content
-                    when (currentRoute) {
-                        LandingRoutes.HOME -> {
-                            HomeScreen(
-                                repository = repository,
-                                onNavigateToLogin = { showLogin = true },
-                                onNavigateToNews = { currentRoute = LandingRoutes.NEWS },
-                                onArticleClick = { articleId -> selectedArticleId = articleId }
-                            )
-                        }
-                        LandingRoutes.INSTRUCTIONS -> {
-                            InstructionsScreen(
-                                onGuideClick = { slug -> selectedGuideSlug = slug }
-                            )
-                        }
-                        LandingRoutes.NEWS -> {
-                            NewsScreen(
-                                repository = repository,
-                                onArticleClick = { articleId -> selectedArticleId = articleId }
-                            )
-                        }
-                        LandingRoutes.ABOUT -> {
-                            AboutScreen()
-                        }
-                        LandingRoutes.CONTACT -> {
-                            ContactScreen(repository = repository)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues)
+                    ) {
+                        // Content
+                        when (currentRoute) {
+                            LandingRoutes.HOME -> {
+                                HomeScreen(
+                                    repository = repository,
+                                    onLoginClick = { startKeycloakLogin() },
+                                    onNavigateToNews = { currentRoute = LandingRoutes.NEWS },
+                                    onArticleClick = { articleId -> selectedArticleId = articleId },
+                                    onNavigateToContact = { currentRoute = LandingRoutes.CONTACT }
+                                )
+                            }
+                            LandingRoutes.INSTRUCTIONS -> {
+                                InstructionsScreen(
+                                    onGuideClick = { slug -> selectedGuideSlug = slug }
+                                )
+                            }
+                            LandingRoutes.NEWS -> {
+                                NewsScreen(
+                                    repository = repository,
+                                    onArticleClick = { articleId -> selectedArticleId = articleId }
+                                )
+                            }
+                            LandingRoutes.ABOUT -> {
+                                AboutScreen()
+                            }
+                            LandingRoutes.CONTACT -> {
+                                ContactScreen(repository = repository)
+                            }
                         }
                     }
-                }
 
-                // Floating Navigation Bar (absolute positioned) - hide when login is shown
-                if (!showLogin) {
+                    // Floating Navigation Bar (absolute positioned)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -466,6 +506,30 @@ fun MtkApp() {
                                 selectedArticleId = null // Clear article when switching tabs
                             }
                         )
+                    }
+                }
+
+                // Brief overlay while the Keycloak code is exchanged after the
+                // browser redirects back to the app.
+                if (awaitingLogin && authState is AuthState.Loading) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Civic.Background.copy(alpha = 0.92f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            CircularProgressIndicator(color = Civic.Terracotta, strokeWidth = 3.dp)
+                            Text(
+                                text = "Giriş yoxlanılır…",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Civic.Muted
+                            )
+                        }
                     }
                 }
             }

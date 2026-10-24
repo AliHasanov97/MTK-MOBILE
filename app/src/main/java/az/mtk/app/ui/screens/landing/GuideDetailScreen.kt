@@ -18,7 +18,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import az.mtk.app.data.Guide
 import az.mtk.app.data.GuideSection
-import az.mtk.app.ui.theme.MtkColors
+import az.mtk.app.ui.navigation.LandingDarkSystemBars
+import az.mtk.app.ui.theme.Civic
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -27,7 +28,10 @@ fun GuideDetailScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    LandingDarkSystemBars()
+
     Scaffold(
+        containerColor = Civic.Background,
         topBar = {
             TopAppBar(
                 title = { Text(guide.title, maxLines = 1) },
@@ -40,7 +44,9 @@ fun GuideDetailScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                    containerColor = Civic.ForestDeep,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White
                 )
             )
         }
@@ -50,15 +56,14 @@ fun GuideDetailScreen(
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
                 .padding(paddingValues),
-            contentPadding = PaddingValues(bottom = 80.dp)
+            contentPadding = PaddingValues(bottom = 24.dp)
         ) {
             // Header
             item {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surface)
-                        .padding(16.dp),
+                        .padding(horizontal = 20.dp, vertical = 18.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     // Icon
@@ -66,7 +71,7 @@ fun GuideDetailScreen(
                         modifier = Modifier
                             .size(64.dp)
                             .background(
-                                MtkColors.Primary.copy(alpha = 0.1f),
+                                Civic.Terracotta.copy(alpha = 0.1f),
                                 RoundedCornerShape(12.dp)
                             ),
                         contentAlignment = Alignment.Center
@@ -74,7 +79,7 @@ fun GuideDetailScreen(
                         Text(
                             text = guide.icon,
                             fontSize = 36.sp,
-                            color = MtkColors.Primary
+                            color = Civic.Terracotta
                         )
                     }
 
@@ -100,13 +105,13 @@ fun GuideDetailScreen(
                         guide.roles.forEach { role ->
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
-                                color = MtkColors.Primary.copy(alpha = 0.1f)
+                                color = Civic.Terracotta.copy(alpha = 0.1f)
                             ) {
                                 Text(
                                     text = role,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Medium,
-                                    color = MtkColors.Primary,
+                                    color = Civic.Terracotta,
                                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                                 )
                             }
@@ -221,7 +226,7 @@ private fun SectionCard(
                             modifier = Modifier
                                 .size(24.dp)
                                 .background(
-                                    MtkColors.Primary.copy(alpha = 0.1f),
+                                    Civic.Terracotta.copy(alpha = 0.1f),
                                     RoundedCornerShape(12.dp)
                                 ),
                             contentAlignment = Alignment.Center
@@ -230,7 +235,7 @@ private fun SectionCard(
                                 text = "${index + 1}",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = MtkColors.Primary
+                                color = Civic.Terracotta
                             )
                         }
 
@@ -257,7 +262,7 @@ private fun TipCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MtkColors.AccentOrange.copy(alpha = 0.08f)
+            containerColor = Civic.Olive.copy(alpha = 0.08f)
         )
     ) {
         Row(
@@ -270,7 +275,7 @@ private fun TipCard(
             Icon(
                 imageVector = Icons.Default.Lightbulb,
                 contentDescription = null,
-                tint = MtkColors.AccentOrange,
+                tint = Civic.Olive,
                 modifier = Modifier.size(20.dp)
             )
             Text(

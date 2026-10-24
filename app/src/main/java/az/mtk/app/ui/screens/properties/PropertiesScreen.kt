@@ -30,7 +30,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import az.mtk.app.data.api.OwnerItemDto
 import az.mtk.app.ui.components.AppSheetDialog
 import az.mtk.app.ui.mtkViewModel
-import az.mtk.app.ui.theme.MtkColors
 import az.mtk.app.util.Format
 
 private object PropertyColors {

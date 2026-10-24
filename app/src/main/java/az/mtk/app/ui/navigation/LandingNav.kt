@@ -1,32 +1,55 @@
 package az.mtk.app.ui.navigation
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import az.mtk.app.ui.theme.MtkColors
+import androidx.core.view.WindowCompat
+import az.mtk.app.ui.theme.Civic
 
 /**
- * Top app bar for landing pages
+ * Keeps the system status-bar icons light while a dark (forest) header is on
+ * screen, and restores the previous style when it leaves the composition.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LandingDarkSystemBars() {
+    val view = LocalView.current
+    DisposableEffect(view) {
+        val controller = (view.context as? android.app.Activity)
+            ?.window
+            ?.let { WindowCompat.getInsetsController(it, view) }
+        val previous = controller?.isAppearanceLightStatusBars
+        controller?.isAppearanceLightStatusBars = false
+        onDispose {
+            if (previous != null) controller.isAppearanceLightStatusBars = previous
+        }
+    }
+}
+
+/**
+ * Top app bar for landing pages — the same forest panel and terracotta action
+ * the resident dashboard opens with, so the public site and the panel feel like
+ * one product. The bar paints under the status bar, so the system icons go light.
+ */
 @Composable
 fun LandingTopBar(
     companyName: String,
@@ -34,93 +57,114 @@ fun LandingTopBar(
     userName: String? = null,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 2.dp
+    LandingDarkSystemBars()
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(Civic.ForestDeep)
+            .statusBarsPadding()
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Row(
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .size(38.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color.White.copy(alpha = 0.12f))
+                .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(12.dp)),
+            contentAlignment = Alignment.Center
         ) {
-            // Logo and title
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            Icon(
+                imageVector = Icons.Default.Apartment,
+                contentDescription = "MTK",
+                tint = Civic.Lime,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = companyName,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = (-0.2).sp,
+                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "İdarəetmə sistemi",
+                fontSize = 10.sp,
+                color = Color.White.copy(alpha = 0.55f),
+                maxLines = 1
+            )
+        }
+
+        if (userName != null) {
+            // Signed-in visitor: the account replaces the login action.
+            Surface(
+                shape = CircleShape,
+                color = Color.White.copy(alpha = 0.14f),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.18f))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .clickable(onClick = onLoginClick)
+                        .padding(horizontal = 12.dp, vertical = 7.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AccountCircle,
+                        contentDescription = null,
+                        tint = Civic.Lime,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = userName,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.widthIn(max = 96.dp)
+                    )
+                    Icon(
+                        imageVector = Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.6f),
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
+        } else {
+            Button(
+                onClick = onLoginClick,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Civic.TerracottaVivid,
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(10.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.Home,
-                    contentDescription = "MTK Logo",
-                    tint = MtkColors.Primary,
-                    modifier = Modifier.size(28.dp)
+                    imageVector = Icons.AutoMirrored.Filled.Login,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
                 )
-                Text(
-                    text = companyName,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-
-            // Actions
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Signed-in user: show the account instead of the login button
-                if (userName != null) {
-                    OutlinedButton(
-                        onClick = onLoginClick,
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.AccountCircle,
-                            contentDescription = null,
-                            tint = MtkColors.Primary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = userName,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = MtkColors.Primary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.widthIn(max = 120.dp)
-                        )
-                    }
-                } else {
-                    // Login button
-                    Button(
-                        onClick = onLoginClick,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MtkColors.Primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        ),
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Login,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text("Daxil ol", fontSize = 14.sp)
-                    }
-                }
+                Spacer(Modifier.width(6.dp))
+                Text("Daxil ol", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
         }
     }
 }
 
 /**
- * Bottom navigation for landing pages - Minimalist transparent floating style
+ * Bottom navigation for landing pages — a floating paper dock with a hairline
+ * border, mirroring the quick-action dock inside the app.
  */
 @Composable
 fun LandingBottomNav(
@@ -131,59 +175,55 @@ fun LandingBottomNav(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 12.dp),
+            .navigationBarsPadding()
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center
     ) {
-        Box(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .shadow(
-                    elevation = 8.dp,
-                    shape = RoundedCornerShape(20.dp)
-                )
-                .background(
-                    color = Color.White,
-                    shape = RoundedCornerShape(20.dp)
-                )
+                .clip(RoundedCornerShape(24.dp))
+                .background(Civic.Surface)
+                .border(1.dp, Civic.Border, RoundedCornerShape(24.dp))
+                .padding(horizontal = 6.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 10.dp, horizontal = 16.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                LandingNavItem(
-                    icon = Icons.Default.Home,
-                    label = "Əsas",
-                    selected = currentRoute == "home",
-                    onClick = { onNavigate("home") }
-                )
-                LandingNavItem(
-                    icon = Icons.Default.Book,
-                    label = "Təlimat",
-                    selected = currentRoute == "instructions",
-                    onClick = { onNavigate("instructions") }
-                )
-                LandingNavItem(
-                    icon = Icons.Default.Newspaper,
-                    label = "Xəbərlər",
-                    selected = currentRoute == "news",
-                    onClick = { onNavigate("news") }
-                )
-                LandingNavItem(
-                    icon = Icons.AutoMirrored.Filled.List,
-                    label = "Haqqımızda",
-                    selected = currentRoute == "about",
-                    onClick = { onNavigate("about") }
-                )
-                LandingNavItem(
-                    icon = Icons.Default.Phone,
-                    label = "Əlaqə",
-                    selected = currentRoute == "contact",
-                    onClick = { onNavigate("contact") }
-                )
-            }
+            LandingNavItem(
+                icon = Icons.Default.Home,
+                label = "Əsas",
+                selected = currentRoute == LandingRoutes.HOME,
+                onClick = { onNavigate(LandingRoutes.HOME) },
+                modifier = Modifier.weight(1f)
+            )
+            LandingNavItem(
+                icon = Icons.Default.MenuBook,
+                label = "Təlimat",
+                selected = currentRoute == LandingRoutes.INSTRUCTIONS,
+                onClick = { onNavigate(LandingRoutes.INSTRUCTIONS) },
+                modifier = Modifier.weight(1f)
+            )
+            LandingNavItem(
+                icon = Icons.Default.Newspaper,
+                label = "Xəbərlər",
+                selected = currentRoute == LandingRoutes.NEWS,
+                onClick = { onNavigate(LandingRoutes.NEWS) },
+                modifier = Modifier.weight(1f)
+            )
+            LandingNavItem(
+                icon = Icons.AutoMirrored.Filled.List,
+                label = "Haqqımızda",
+                selected = currentRoute == LandingRoutes.ABOUT,
+                onClick = { onNavigate(LandingRoutes.ABOUT) },
+                modifier = Modifier.weight(1f)
+            )
+            LandingNavItem(
+                icon = Icons.Default.Phone,
+                label = "Əlaqə",
+                selected = currentRoute == LandingRoutes.CONTACT,
+                onClick = { onNavigate(LandingRoutes.CONTACT) },
+                modifier = Modifier.weight(1f)
+            )
         }
     }
 }
@@ -193,31 +233,33 @@ private fun LandingNavItem(
     icon: ImageVector,
     label: String,
     selected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
+    val tint = if (selected) Civic.Terracotta else Civic.MutedSoft
+
     Column(
-        modifier = Modifier
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (selected) Civic.Container else Color.Transparent)
             .clickable(onClick = onClick)
-            .background(
-                color = if (selected) MtkColors.Primary.copy(alpha = 0.1f) else Color.Transparent,
-                shape = RoundedCornerShape(12.dp)
-            )
-            .padding(vertical = 8.dp, horizontal = 12.dp),
+            .padding(horizontal = 4.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        verticalArrangement = Arrangement.spacedBy(3.dp)
     ) {
         Icon(
             imageVector = icon,
             contentDescription = label,
-            tint = if (selected) MtkColors.Primary else MtkColors.TextTertiary,
-            modifier = Modifier.size(if (selected) 26.dp else 24.dp)
+            tint = tint,
+            modifier = Modifier.size(21.dp)
         )
         Text(
             text = label,
-            fontSize = if (selected) 10.sp else 9.sp,
-            color = if (selected) MtkColors.Primary else MtkColors.TextTertiary,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-            maxLines = 1
+            fontSize = 9.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            color = tint,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }

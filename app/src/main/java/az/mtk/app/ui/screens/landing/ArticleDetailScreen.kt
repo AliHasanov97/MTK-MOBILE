@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -31,7 +32,8 @@ import az.mtk.app.ui.components.DocumentPreviewHost
 import az.mtk.app.ui.components.PreviewDocument
 import az.mtk.app.ui.components.rememberDocumentPreviewController
 import az.mtk.app.ui.components.supportsInAppPreview
-import az.mtk.app.ui.theme.MtkColors
+import az.mtk.app.ui.navigation.LandingDarkSystemBars
+import az.mtk.app.ui.theme.Civic
 import az.mtk.app.util.Format
 import az.mtk.app.util.parseBBCode
 import coil.compose.AsyncImage
@@ -47,6 +49,8 @@ fun ArticleDetailScreen(
     onNavigateToNews: () -> Unit = onBack,
     modifier: Modifier = Modifier
 ) {
+    LandingDarkSystemBars()
+
     var article by remember { mutableStateOf<ArtArticle?>(null) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -73,6 +77,7 @@ fun ArticleDetailScreen(
     }
 
     Scaffold(
+        containerColor = Civic.Background,
         topBar = {
             TopAppBar(
                 title = { Text("Xəbər", maxLines = 1) },
@@ -85,7 +90,9 @@ fun ArticleDetailScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                    containerColor = Civic.ForestDeep,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White
                 )
             )
         }
@@ -97,7 +104,7 @@ fun ArticleDetailScreen(
                     .padding(paddingValues),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = MtkColors.Primary)
+                CircularProgressIndicator(color = Civic.Terracotta)
             }
         } else if (article == null) {
             Box(
@@ -164,15 +171,14 @@ private fun ArticleContent(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(bottom = 80.dp)
+        contentPadding = PaddingValues(bottom = 24.dp)
     ) {
         // Header
         item {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surface)
-                    .padding(16.dp),
+                    .padding(horizontal = 20.dp, vertical = 18.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // Category and date
@@ -183,13 +189,13 @@ private fun ArticleContent(
                     Box(
                         modifier = Modifier
                             .size(6.dp)
-                            .background(MtkColors.Primary, RoundedCornerShape(3.dp))
+                            .background(Civic.Terracotta, RoundedCornerShape(3.dp))
                     )
                     Text(
                         text = "Xəbərlər",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
-                        color = MtkColors.Primary
+                        color = Civic.Terracotta
                     )
                     Text(
                         text = "/",
@@ -303,7 +309,7 @@ private fun ArticleContent(
                             when (val state = imageState) {
                                 is AsyncImagePainter.State.Loading -> {
                                     CircularProgressIndicator(
-                                        color = MtkColors.Primary,
+                                        color = Civic.Terracotta,
                                         modifier = Modifier.size(40.dp)
                                     )
                                 }
@@ -429,13 +435,13 @@ private fun ArticleContent(
                         val extension = file.fileName.substringAfterLast(".", "FILE").uppercase()
                         Surface(
                             shape = RoundedCornerShape(6.dp),
-                            color = MtkColors.Primary.copy(alpha = 0.15f)
+                            color = Civic.Terracotta.copy(alpha = 0.15f)
                         ) {
                             Text(
                                 text = extension,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = MtkColors.Primary,
+                                color = Civic.Terracotta,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
                         }
@@ -461,7 +467,7 @@ private fun ArticleContent(
 
                         if (isDownloading) {
                             CircularProgressIndicator(
-                                color = MtkColors.Primary,
+                                color = Civic.Terracotta,
                                 modifier = Modifier.size(20.dp),
                                 strokeWidth = 2.dp
                             )
@@ -469,7 +475,7 @@ private fun ArticleContent(
                             Icon(
                                 imageVector = Icons.Default.Download,
                                 contentDescription = "Endir",
-                                tint = MtkColors.Primary,
+                                tint = Civic.Terracotta,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -511,12 +517,12 @@ private fun ArticleContent(
                             text = "Digər xəbərlərə bax",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
-                            color = MtkColors.Primary
+                            color = Civic.Terracotta
                         )
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                             contentDescription = null,
-                            tint = MtkColors.Primary,
+                            tint = Civic.Terracotta,
                             modifier = Modifier.size(14.dp)
                         )
                     }

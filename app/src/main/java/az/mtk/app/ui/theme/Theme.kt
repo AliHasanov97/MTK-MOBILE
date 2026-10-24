@@ -11,65 +11,35 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 /**
- * Palette mirrored from MTK-UI's public site (app/globals.css :root): deep
- * green, lime accent, warm paper and quiet ink — the same tones the web
- * landing pages and the panel use, so both surfaces read as one product.
+ * Material theme built on the shared "Civic Hearth" palette ([Civic]) that the
+ * dashboard, the panel modules and the landing pages all use: paper canvas,
+ * forest brand surfaces, terracotta actions.
  */
-object MtkColors {
-    // Primary colors — site green
-    val Primary = Color(0xFF345C4A)
-    val PrimaryDark = Color(0xFF263E34)
-    val PrimaryLight = Color(0xFF64804E)
-    val Lime = Color(0xFFC9E3A1)
-
-    // Background colors
-    val Background = Color(0xFFF7F8F4)
-    val Surface = Color(0xFFFFFFFF)
-    val SurfaceVariant = Color(0xFFEEF1E9)
-
-    // Text colors
-    val TextPrimary = Color(0xFF162522)
-    val TextSecondary = Color(0xFF64716C)
-    val TextTertiary = Color(0xFF838D86)
-
-    // Border and divider
-    val Border = Color(0xFFE5E9E1)
-    val Divider = Color(0xFFF0F2EC)
-
-    // Status colors — muted, like the panel's balance tags
-    val Success = Color(0xFF4C7A38)
-    val SuccessBg = Color(0xFFEEF6E6)
-    val Error = Color(0xFFA24A4A)
-    val ErrorBg = Color(0xFFFBF2F2)
-    val Warning = Color(0xFF8A6A2E)
-    val WarningBg = Color(0xFFFBF4E6)
-    val Info = Color(0xFF526354)
-    val InfoBg = Color(0xFFEEF1E9)
-
-    // Icon and accent colors
-    val IconPrimary = Color(0xFF345C4A)
-    val IconSecondary = Color(0xFF64716C)
-    val AccentOrange = Color(0xFF64804E)
-    val AccentGreen = Color(0xFF8EAF67)
-    val AccentBlue = Color(0xFF526354)
-}
-
 private val LightColors = lightColorScheme(
-    primary = MtkColors.Primary,
+    primary = Civic.Terracotta,
     onPrimary = Color.White,
-    primaryContainer = MtkColors.SurfaceVariant,
-    onPrimaryContainer = MtkColors.Primary,
-    secondary = MtkColors.PrimaryLight,
+    primaryContainer = Civic.Container,
+    onPrimaryContainer = Civic.Terracotta,
+    secondary = Civic.Forest,
     onSecondary = Color.White,
-    background = MtkColors.Background,
-    onBackground = MtkColors.TextPrimary,
-    surface = MtkColors.Surface,
-    onSurface = MtkColors.TextPrimary,
-    surfaceVariant = MtkColors.SurfaceVariant,
-    onSurfaceVariant = MtkColors.TextSecondary,
-    outline = MtkColors.Border,
-    outlineVariant = MtkColors.Divider,
-    error = MtkColors.Error,
+    secondaryContainer = Civic.Subtle,
+    onSecondaryContainer = Civic.Forest,
+    tertiary = Civic.Olive,
+    onTertiary = Color.White,
+    tertiaryContainer = Civic.Subtle,
+    onTertiaryContainer = Civic.Olive,
+    background = Civic.Background,
+    onBackground = Civic.Ink,
+    surface = Civic.Surface,
+    onSurface = Civic.Ink,
+    surfaceVariant = Civic.Subtle,
+    onSurfaceVariant = Civic.Muted,
+    outline = Civic.Border,
+    outlineVariant = Civic.Border,
+    error = Civic.Error,
+    onError = Color.White,
+    errorContainer = Civic.ErrorSoft,
+    onErrorContainer = Civic.ErrorText,
 )
 
 private val MtkTypography = Typography(

@@ -110,37 +110,13 @@ import az.mtk.app.data.auth.Roles
 import az.mtk.app.data.auth.UserProfile
 import az.mtk.app.data.modulesForRoles
 import az.mtk.app.ui.mtkViewModel
+import az.mtk.app.ui.theme.Civic
 import az.mtk.app.util.Format
 import az.mtk.app.util.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
-
-/**
- * "Civic Hearth" design tokens (stitch_mtk_mobile_app_design/DESIGN.md):
- * warm off-white canvas, hairline slate borders, terracotta signals and the
- * deep forest hero panel that opens the resident dashboard.
- */
-private object Civic {
-    val Background = Color(0xFFFAFAF8)
-    val Surface = Color(0xFFFFFFFF)
-    val Subtle = Color(0xFFF4F4EE)
-    val Container = Color(0xFFF8EBE6)
-    val Border = Color(0xFFE2E0D8)
-    val Ink = Color(0xFF201A18)
-    val Muted = Color(0xFF594139)
-    val MutedSoft = Color(0xFF8D7168)
-    val Terracotta = Color(0xFFD9531E)
-    val TerracottaVivid = Color(0xFFE85D04)
-    val Forest = Color(0xFF284033)
-    val ForestDeep = Color(0xFF1B2D23)
-    val ForestTop = Color(0xFF1E3629)
-    val Olive = Color(0xFF6F8559)
-    val Lime = Color(0xFFD2EBB7)
-    val Error = Color(0xFFBA1A1A)
-    val ErrorText = Color(0xFF93000A)
-}
 
 class DashboardViewModel : ViewModel() {
     private val identityApi = AppGraph.service(IdentityApi::class.java)
@@ -305,7 +281,6 @@ fun DashboardScreen(
             Column(modifier = Modifier.fillMaxSize()) {
                 // Sabit başlıq: səhifə aşağı sürüşdürülsə də yuxarıda qalır.
                 DashboardTopBar(
-                    owner = uiState.owner,
                     onBack = onBack,
                     onLogout = onLogout,
                 )
@@ -439,7 +414,6 @@ fun DashboardScreen(
 
 @Composable
 private fun DashboardTopBar(
-    owner: OprOwner?,
     onBack: () -> Unit,
     onLogout: () -> Unit,
 ) {
@@ -454,52 +428,7 @@ private fun DashboardTopBar(
     ) {
         HeroIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Geri", onBack)
 
-        Row(
-            modifier = Modifier
-                .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.15f))
-                .padding(horizontal = 12.dp, vertical = 5.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Icon(
-                imageVector = Icons.Default.VerifiedUser,
-                contentDescription = null,
-                tint = Civic.TerracottaVivid,
-                modifier = Modifier.size(14.dp),
-            )
-            Text(
-                text = "SAKİN",
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.6.sp,
-                color = Color.White,
-            )
-        }
-
         Spacer(Modifier.weight(1f))
-
-        Row(
-            modifier = Modifier
-                .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.15f))
-                .padding(horizontal = 12.dp, vertical = 5.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .clip(CircleShape)
-                    .background(Civic.Lime),
-            )
-            Text(
-                text = if (owner == null || owner.isActive) "Aktiv" else "Deaktiv",
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-            )
-        }
 
         HeroIconButton(Icons.AutoMirrored.Filled.ExitToApp, "Çıxış", onLogout)
     }

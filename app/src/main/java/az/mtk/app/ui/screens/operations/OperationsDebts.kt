@@ -114,10 +114,7 @@ internal fun DebtsTab(
                 if (state.canManage) {
                     OpsPrimaryButton(
                         text = "+ Borc",
-                        onClick = {
-                            viewModel.loadOwners()
-                            showAdd = true
-                        },
+                        onClick = { showAdd = true },
                     )
                 }
             }
@@ -581,6 +578,7 @@ private fun AddChargeSheet(
     }
 
     val propertyOptions = buildList {
+        add("" to "Ümumi (konkret mənzil/qaraja bağlı deyil)")
         detail?.apartments.orEmpty().forEach { apartment ->
             val label = buildString {
                 append("Mənzil ")
@@ -662,17 +660,11 @@ private fun AddChargeSheet(
             Spacer(Modifier.height(10.dp))
             if (state.ownerDetailLoading) {
                 Text("Əmlaklar yüklənir…", fontSize = 11.sp, color = OpsColors.MutedSoft)
-            } else if (propertyOptions.isEmpty()) {
-                Text(
-                    "Bu sakinin əmlakı yoxdur — borc yalnız mənzil və ya qaraja yazıla bilər.",
-                    fontSize = 11.sp,
-                    color = OpsColors.Error,
-                )
             } else {
                 OpsSelectField(
                     label = "Əmlak",
                     options = propertyOptions,
-                    selectedId = property.takeIf { it.isNotBlank() },
+                    selectedId = property,
                     onSelect = { property = it },
                     placeholder = "Əmlak seçin…",
                 )
@@ -698,7 +690,6 @@ private fun AddChargeSheet(
                 val ownerId = selected?.id
                 when {
                     ownerId == null -> localError = "Sakin seçilməlidir."
-                    property.isBlank() -> localError = "Əmlak seçilməlidir."
                     description.isBlank() -> localError = "Təsvir tələb olunur."
                     value == null || value <= 0 -> localError = "Məbləğ 0-dan böyük olmalıdır."
                     else -> {
@@ -719,8 +710,7 @@ private fun AddChargeSheet(
                     }
                 }
             },
-            enabled = selected != null && property.isNotBlank() &&
-                description.isNotBlank() && amount.isNotBlank(),
+            enabled = selected != null && description.isNotBlank() && amount.isNotBlank(),
         )
     }
 }

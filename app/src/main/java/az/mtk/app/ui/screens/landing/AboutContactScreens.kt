@@ -16,7 +16,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import az.mtk.app.ui.theme.MtkColors
+import az.mtk.app.ui.theme.Civic
 import kotlinx.coroutines.launch
 
 @Composable
@@ -27,7 +27,7 @@ fun AboutScreen(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(bottom = 80.dp)
+        contentPadding = PaddingValues(bottom = 88.dp)
     ) {
         // Header
         item {
@@ -99,13 +99,13 @@ fun AboutScreen(
                         az.mtk.app.data.About.values.forEach { value ->
                             Surface(
                                 shape = RoundedCornerShape(8.dp),
-                                color = MtkColors.Primary.copy(alpha = 0.1f)
+                                color = Civic.Terracotta.copy(alpha = 0.1f)
                             ) {
                                 Text(
                                     text = value,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium,
-                                    color = MtkColors.Primary,
+                                    color = Civic.Terracotta,
                                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                                 )
                             }
@@ -176,7 +176,7 @@ private fun FAQItem(
                 Icon(
                     imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                     contentDescription = null,
-                    tint = MtkColors.Primary
+                    tint = Civic.Terracotta
                 )
             }
 
@@ -217,7 +217,7 @@ fun ContactScreen(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(bottom = 80.dp)
+        contentPadding = PaddingValues(bottom = 88.dp)
     ) {
         // Header
         item {
@@ -234,13 +234,13 @@ fun ContactScreen(
                 ) {
                     Surface(
                         shape = RoundedCornerShape(6.dp),
-                        color = MtkColors.Primary.copy(alpha = 0.15f)
+                        color = Civic.Terracotta.copy(alpha = 0.15f)
                     ) {
                         Text(
                             text = "DAİMİ ƏLAQƏ MƏRKƏZİ",
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Medium,
-                            color = MtkColors.Primary,
+                            color = Civic.Terracotta,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                     }
@@ -274,8 +274,8 @@ fun ContactScreen(
                             title = "TELEFON",
                             value = profile.phone,
                             subtitle = "Dəftəl zəng et",
-                            iconBackground = MtkColors.AccentOrange.copy(alpha = 0.1f),
-                            iconTint = MtkColors.AccentOrange
+                            iconBackground = Civic.Olive.copy(alpha = 0.1f),
+                            iconTint = Civic.Olive
                         )
                     }
                     if (!profile.email.isNullOrBlank()) {
@@ -284,8 +284,8 @@ fun ContactScreen(
                             title = "E-POÇT",
                             value = profile.email,
                             subtitle = "Məktub göndər",
-                            iconBackground = MtkColors.AccentBlue.copy(alpha = 0.1f),
-                            iconTint = MtkColors.AccentBlue
+                            iconBackground = Civic.Forest.copy(alpha = 0.1f),
+                            iconTint = Civic.Forest
                         )
                     }
                     if (!profile.address.isNullOrBlank()) {
@@ -294,8 +294,8 @@ fun ContactScreen(
                             title = "ÜNVAN",
                             value = profile.address,
                             subtitle = null,
-                            iconBackground = MtkColors.AccentGreen.copy(alpha = 0.1f),
-                            iconTint = MtkColors.AccentGreen
+                            iconBackground = Civic.Olive.copy(alpha = 0.1f),
+                            iconTint = Civic.Olive
                         )
                     }
                     if (!profile.workHours.isNullOrBlank()) {
@@ -304,8 +304,8 @@ fun ContactScreen(
                             title = "İŞ SAATı",
                             value = profile.workHours,
                             subtitle = null,
-                            iconBackground = MtkColors.Primary.copy(alpha = 0.1f),
-                            iconTint = MtkColors.Primary
+                            iconBackground = Civic.Terracotta.copy(alpha = 0.1f),
+                            iconTint = Civic.Terracotta
                         )
                     }
                 }
@@ -334,7 +334,7 @@ fun ContactScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.Send,
                             contentDescription = null,
-                            tint = MtkColors.Primary
+                            tint = Civic.Terracotta
                         )
                         Text(
                             text = "Müraciət Forması",
@@ -401,7 +401,7 @@ fun ContactScreen(
                         onClick = { /* TODO: Submit form */ },
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = MtkColors.Primary
+                            containerColor = Civic.Terracotta
                         ),
                         shape = RoundedCornerShape(10.dp),
                         contentPadding = PaddingValues(vertical = 14.dp)

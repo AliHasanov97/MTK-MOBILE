@@ -17,7 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import az.mtk.app.data.Guide
 import az.mtk.app.data.guides
-import az.mtk.app.ui.theme.MtkColors
+import az.mtk.app.ui.theme.Civic
 
 @Composable
 fun InstructionsScreen(
@@ -28,7 +28,7 @@ fun InstructionsScreen(
         modifier = modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(bottom = 80.dp)
+        contentPadding = PaddingValues(bottom = 88.dp)
     ) {
         // Header
         item {
@@ -41,13 +41,13 @@ fun InstructionsScreen(
             ) {
                 Surface(
                     shape = RoundedCornerShape(6.dp),
-                    color = MtkColors.Primary.copy(alpha = 0.1f)
+                    color = Civic.Terracotta.copy(alpha = 0.1f)
                 ) {
                     Text(
                         text = "TƏLİMAT",
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
-                        color = MtkColors.Primary,
+                        color = Civic.Terracotta,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                     )
                 }
@@ -110,7 +110,7 @@ private fun GuideCard(
                 modifier = Modifier
                     .size(48.dp)
                     .background(
-                        MtkColors.Primary.copy(alpha = 0.1f),
+                        Civic.Terracotta.copy(alpha = 0.1f),
                         RoundedCornerShape(10.dp)
                     ),
                 contentAlignment = Alignment.Center
@@ -118,7 +118,7 @@ private fun GuideCard(
                 Text(
                     text = guide.icon,
                     fontSize = 26.sp,
-                    color = MtkColors.Primary
+                    color = Civic.Terracotta
                 )
             }
 
@@ -148,13 +148,13 @@ private fun GuideCard(
                     guide.roles.take(3).forEach { role ->
                         Surface(
                             shape = RoundedCornerShape(4.dp),
-                            color = MtkColors.Primary.copy(alpha = 0.1f)
+                            color = Civic.Terracotta.copy(alpha = 0.1f)
                         ) {
                             Text(
                                 text = role,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = MtkColors.Primary,
+                                color = Civic.Terracotta,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                             )
                         }

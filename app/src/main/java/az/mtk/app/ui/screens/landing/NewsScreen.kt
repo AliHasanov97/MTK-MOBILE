@@ -18,7 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import az.mtk.app.data.api.ArtArticle
 import az.mtk.app.data.api.LandingRepository
-import az.mtk.app.ui.theme.MtkColors
+import az.mtk.app.ui.theme.Civic
 import az.mtk.app.util.Format
 import kotlinx.coroutines.launch
 
@@ -43,7 +43,7 @@ fun NewsScreen(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(bottom = 80.dp)
+        contentPadding = PaddingValues(bottom = 88.dp)
     ) {
         // Header
         item {
@@ -56,13 +56,13 @@ fun NewsScreen(
             ) {
                 Surface(
                     shape = RoundedCornerShape(6.dp),
-                    color = MtkColors.Primary.copy(alpha = 0.1f)
+                    color = Civic.Terracotta.copy(alpha = 0.1f)
                 ) {
                     Text(
                         text = "XƏBƏRLƏR",
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
-                        color = MtkColors.Primary,
+                        color = Civic.Terracotta,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                     )
                 }
@@ -80,7 +80,7 @@ fun NewsScreen(
                 ) {
                     Surface(
                         shape = RoundedCornerShape(6.dp),
-                        color = MtkColors.Primary.copy(alpha = 0.15f)
+                        color = Civic.Terracotta.copy(alpha = 0.15f)
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -91,7 +91,7 @@ fun NewsScreen(
                                 modifier = Modifier
                                     .size(6.dp)
                                     .background(
-                                        MtkColors.Primary,
+                                        Civic.Terracotta,
                                         RoundedCornerShape(3.dp)
                                     )
                             )
@@ -99,7 +99,7 @@ fun NewsScreen(
                                 text = "${articles.size} Xəbər",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = MtkColors.Primary
+                                color = Civic.Terracotta
                             )
                         }
                     }
@@ -123,7 +123,7 @@ fun NewsScreen(
                         .padding(32.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = MtkColors.Primary)
+                    CircularProgressIndicator(color = Civic.Terracotta)
                 }
             }
         }
@@ -200,7 +200,7 @@ private fun NewsCard(
                 text = article.publishedAt?.let { Format.date(it) } ?: Format.date(article.createdAt ?: ""),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
-                color = MtkColors.Primary
+                color = Civic.Terracotta
             )
 
             // Title
@@ -231,12 +231,12 @@ private fun NewsCard(
                     text = "Ətraflı oxu",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
-                    color = MtkColors.Primary
+                    color = Civic.Terracotta
                 )
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                     contentDescription = null,
-                    tint = MtkColors.Primary,
+                    tint = Civic.Terracotta,
                     modifier = Modifier.size(14.dp)
                 )
             }
