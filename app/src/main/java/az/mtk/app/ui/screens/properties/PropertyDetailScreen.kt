@@ -1466,7 +1466,7 @@ internal fun ChargeDetailDialog(
 }
 
 @Composable
-private fun OwnerPicker(
+internal fun OwnerPicker(
     selected: OwnerItemDto?,
     owners: List<OwnerItemDto>,
     query: String,

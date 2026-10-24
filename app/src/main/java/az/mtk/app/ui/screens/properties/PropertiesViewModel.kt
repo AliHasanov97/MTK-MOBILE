@@ -24,6 +24,13 @@ class PropertiesViewModel : ViewModel() {
         val availableFloors: List<Int> = emptyList(),
         val availableRooms: List<Int> = emptyList(),
         val filters: PropertyFilters = PropertyFilters(),
+        // Binalar tab — the building register (GET api/buildings/buildings).
+        val buildings: List<BuildingDto> = emptyList(),
+        val buildingsLoading: Boolean = false,
+        val buildingsError: String? = null,
+        val buildingsQuery: String = "",
+        /** Bina id-si → binadakı mənzil sayı (Binalar tabındaki kart üçün). */
+        val apartmentCounts: Map<String, Int> = emptyMap(),
         // Sakinlər (owners) tab — separate paged endpoint, loaded on demand.
         val residents: List<OwnerItemDto> = emptyList(),
         val residentsTotal: Int = 0,
@@ -57,11 +64,16 @@ class PropertiesViewModel : ViewModel() {
                 ).data ?: SearchGaragesResult(emptyList(), 0, 0, 0)
                 allGarages = garagesResult.items.orEmpty()
 
+                // Load the building register. A failure here must not blank the
+                // apartment/garage lists — the tab reports its own error.
+                _state.value = _state.value.copy(buildingsLoading = true)
+                val buildings = runCatching { service.buildings() }.getOrNull()
+
                 // Calculate stats
-                val stats = calculateStats(allApartments, allGarages)
+                val stats = calculateStats(allApartments, allGarages, buildings.orEmpty())
 
                 // Extract filter options
-                val buildings = allApartments
+                val buildingsOptions = allApartments
                     .mapNotNull { it.building }
                     .mapNotNull { building ->
                         val id = building.id ?: return@mapNotNull null
@@ -85,9 +97,16 @@ class PropertiesViewModel : ViewModel() {
                     loading = false,
                     stats = stats,
                     error = null,
-                    availableBuildings = buildings,
+                    availableBuildings = buildingsOptions,
                     availableFloors = floors,
                     availableRooms = rooms,
+                    buildings = buildings.orEmpty(),
+                    buildingsLoading = false,
+                    buildingsError = if (buildings == null) "Binaları yükləmək mümkün olmadı." else null,
+                    apartmentCounts = allApartments
+                        .mapNotNull { it.building?.id }
+                        .groupingBy { it }
+                        .eachCount(),
                 )
 
                 // Seçilmiş tab və axtarış/filtr tətbiq olunur.
@@ -136,6 +155,16 @@ class PropertiesViewModel : ViewModel() {
         applyFilters()
     }
 
+    fun setBuildingsQuery(query: String) {
+        _state.value = _state.value.copy(buildingsQuery = query)
+    }
+
+    /** Reloads after a create action (building / apartment / garage / owner). */
+    fun refresh() {
+        loadResidents(force = true)
+        load()
+    }
+
     fun setFilters(filters: PropertyFilters) {
         println("🔍 Filter tətbiq olunur: buildings=${filters.buildingIds.size}, floors=${filters.floors.size}, rooms=${filters.roomCounts.size}, status=${filters.status}, hasOwner=${filters.hasOwnerOnly}")
         _state.value = _state.value.copy(filters = filters)
@@ -170,11 +199,21 @@ class PropertiesViewModel : ViewModel() {
             val matchesStatus = filters.status == null ||
                     apartment.status?.lowercase() == filters.status.lowercase()
 
+            val matchesHasOwner = !filters.hasOwnerOnly || apartment.currentOwner != null
+
             // Owner filter
-            val matchesOwner = !filters.hasOwnerOnly || apartment.currentOwner != null
+            val matchesOwner = when {
+                // "Sahibsiz" + konkret sahiblər birlikdə seçilibsə, backend-də
+                // OR filtri olmadığı üçün UI da bu halda sahib filtrini tətbiq
+                // etmir — eyni davranış burada saxlanılır.
+                filters.ownerIds.isNotEmpty() && filters.noOwner -> true
+                filters.ownerIds.isNotEmpty() -> apartment.currentOwner?.id in filters.ownerIds
+                filters.noOwner -> apartment.currentOwner == null
+                else -> true
+            }
 
             matchesBuilding && matchesFloor && matchesRoom && matchesArea &&
-                    matchesStatus && matchesOwner
+                    matchesStatus && matchesOwner && matchesHasOwner
         }
 
         // Filter garages
@@ -185,9 +224,15 @@ class PropertiesViewModel : ViewModel() {
                     (filters.status == "vacant" && garage.owner == null)
 
             // Owner filter
-            val matchesOwner = !filters.hasOwnerOnly || garage.owner != null
+            val matchesOwner = when {
+                filters.ownerIds.isNotEmpty() && filters.noOwner -> true
+                filters.ownerIds.isNotEmpty() -> garage.owner?.id in filters.ownerIds
+                filters.noOwner -> garage.owner == null
+                else -> true
+            }
 
-            matchesStatus && matchesOwner
+            matchesStatus && matchesOwner &&
+                    (!filters.hasOwnerOnly || garage.owner != null)
         }
 
         // Combine and convert to UI items
@@ -199,7 +244,8 @@ class PropertiesViewModel : ViewModel() {
             val matchesTab = when (tab) {
                 PropertyTabType.APARTMENTS -> property.type == PropertyItemType.APARTMENT
                 PropertyTabType.GARAGES -> property.type == PropertyItemType.GARAGE
-                // Sakinlər tabı əmlak siyahısını deyil, ayrı sakin siyahısını göstərir.
+                // Binalar və Sakinlər tabları ayrı siyahılar göstərir.
+                PropertyTabType.BUILDINGS -> false
                 PropertyTabType.RESIDENTS -> false
             }
 
@@ -239,6 +285,13 @@ class PropertiesViewModel : ViewModel() {
                 ownerName = apartment.currentOwner?.name,
                 ownerPhone = null,
                 buildingName = buildingName,
+                buildingId = apartment.building?.id,
+                number = apartmentNumber,
+                floor = floor,
+                roomCount = roomCount,
+                area = area,
+                status = apartment.status,
+                ownerId = apartment.currentOwner?.id,
             ).also {
                 println("🏢 Created apartment PropertyItem: ID=${it.id}, title=${it.title}")
             }
@@ -257,6 +310,9 @@ class PropertiesViewModel : ViewModel() {
                 ownerName = garage.owner?.name,
                 ownerPhone = null,
                 buildingName = null,
+                number = garageNumber,
+                status = if (garage.owner != null) "occupied" else "vacant",
+                ownerId = garage.owner?.id,
             ).also {
                 println("🚗 Created garage PropertyItem: ID=${it.id}, title=${it.title}")
             }
@@ -322,6 +378,7 @@ class PropertiesViewModel : ViewModel() {
     private fun calculateStats(
         apartments: List<ApartmentDto>,
         garages: List<GarageDto>,
+        buildings: List<BuildingDto>,
     ): PropertyStatsData {
         val totalApartments = apartments.size
         val totalGarages = garages.size
@@ -333,6 +390,7 @@ class PropertiesViewModel : ViewModel() {
         }
 
         return PropertyStatsData(
+            totalBuildings = buildings.size,
             totalApartments = totalApartments,
             totalGarages = totalGarages,
             occupancyRate = occupancyRate,
@@ -357,6 +415,7 @@ class PropertiesViewModel : ViewModel() {
 // UI Data Models
 
 data class PropertyStatsData(
+    val totalBuildings: Int = 0,
     val totalApartments: Int = 0,
     val totalGarages: Int = 0,
     val occupancyRate: Int = 0,
@@ -364,6 +423,7 @@ data class PropertyStatsData(
 )
 
 enum class PropertyTabType {
+    BUILDINGS,
     APARTMENTS,
     GARAGES,
     RESIDENTS,
@@ -383,6 +443,14 @@ data class PropertyItem(
     val ownerName: String?,
     val ownerPhone: String?,
     val buildingName: String?,
+    // Sorting keys for the list toolbar (Bina, Nömrə, Mərtəbə, Otaq, Sahə, Status).
+    val buildingId: String? = null,
+    val number: String? = null,
+    val floor: Int? = null,
+    val roomCount: Int? = null,
+    val area: Double? = null,
+    val status: String? = null,
+    val ownerId: String? = null,
 )
 
 data class PropertyBadgeItem(
@@ -405,6 +473,10 @@ data class PropertyFilters(
     val maxArea: Double = 1000.0,
     val status: String? = null,
     val hasOwnerOnly: Boolean = false,
+    /** Konkret sahib(lər); boşdursa sahib üzrə filtr yoxdur. */
+    val ownerIds: List<String> = emptyList(),
+    /** Yalnız sahibsiz əmlaklar (UI-dakı "Sahibsiz" seçimi). */
+    val noOwner: Boolean = false,
 )
 
 data class FilterOption(

@@ -216,6 +216,7 @@ fun DashboardScreen(
     onOpenIdentity: () -> Unit = {},
     onOpenNews: () -> Unit = {},
     onOpenHr: () -> Unit = {},
+    onOpenManagement: (Boolean) -> Unit = {},
     viewModel: DashboardViewModel = mtkViewModel { DashboardViewModel() },
 ) {
     val uiState by viewModel.state.collectAsStateWithLifecycle()
@@ -323,6 +324,7 @@ fun DashboardScreen(
                                     "identity" -> onOpenIdentity()
                                     "news" -> onOpenNews()
                                     "hr" -> onOpenHr()
+                                    "admin" -> onOpenManagement(false)
                                     else -> scope.launch {
                                         snackbarHostState.showSnackbar(
                                             "«${module.label}» modulu mobil tətbiqdə hələ hazırlanmayıb."
@@ -395,6 +397,9 @@ fun DashboardScreen(
                         "manage_appeals" -> onOpenAppeals(false)
                         "create_appeal" -> onOpenAppeals(true)
                         "manage_staff" -> onOpenHr()
+                        "manage_users" -> onOpenIdentity()
+                        "view_audit" -> onOpenManagement(true)
+                        "system_settings" -> onOpenManagement(false)
                         else -> {
                             // Show "not implemented yet" message for other actions
                             scope.launch {

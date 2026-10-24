@@ -182,10 +182,51 @@ class AuthRepository(private val context: Context) {
         }
     }
 
-    fun logout() {
+    /**
+     * Clears the local session and ends the Keycloak SSO session.
+     *
+     * Yalnız lokal tokenləri silmək kifayət etmir: brauzerdə Keycloak-un SSO
+     * cookie-si qalır və növbəti "daxil ol" sorğusu istifadəçini parol
+     * soruşmadan yenidən içəri buraxır. Keycloak-ın logout endpointi refresh
+     * tokeni back-channel logout kimi qəbul edir (204) və serverdəki sessiyanı
+     * ləğv edir — bundan sonra brauzer cookie-si etibarsız olur.
+     */
+    suspend fun logout() {
+        val session = store.load()
         store.clear()
         pending.edit().clear().apply()
         _state.value = AuthState.Unauthenticated()
+
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val refreshToken = session?.refreshToken
+                val idToken = session?.idToken
+                val request = when {
+                    refreshToken != null -> {
+                        val form = FormBody.Builder()
+                            .add("client_id", AppConfig.ClientId)
+                            .add("refresh_token", refreshToken)
+                            .build()
+                        Request.Builder()
+                            .url(AppConfig.EndSessionEndpoint)
+                            .post(form)
+                            .build()
+                    }
+
+                    idToken != null -> {
+                        val url = Uri.parse(AppConfig.EndSessionEndpoint).buildUpon()
+                            .appendQueryParameter("client_id", AppConfig.ClientId)
+                            .appendQueryParameter("id_token_hint", idToken)
+                            .build()
+                            .toString()
+                        Request.Builder().url(url).get().build()
+                    }
+
+                    else -> return@runCatching
+                }
+                client.newCall(request).execute().use { /* nəticə vacib deyil */ }
+            }
+        }
     }
 
     private fun refreshBlocking(session: Session): Session? {

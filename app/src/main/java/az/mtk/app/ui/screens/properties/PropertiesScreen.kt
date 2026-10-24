@@ -27,10 +27,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import az.mtk.app.AppGraph
+import az.mtk.app.data.api.MtkService
 import az.mtk.app.data.api.OwnerItemDto
+import az.mtk.app.data.api.SearchBody
 import az.mtk.app.ui.components.AppSheetDialog
 import az.mtk.app.ui.mtkViewModel
 import az.mtk.app.util.Format
+import kotlinx.coroutines.delay
 
 private object PropertyColors {
     val Background = Color(0xFFFAFAF8)
@@ -58,10 +62,20 @@ fun PropertiesScreen(
     onBack: () -> Unit,
     onPropertyClick: (propertyId: String, propertyType: PropertyType) -> Unit,
     onResidentClick: (residentId: String) -> Unit = {},
+    onBuildingClick: (buildingId: String) -> Unit = {},
+    canManage: Boolean = false,
     viewModel: PropertiesViewModel = mtkViewModel { PropertiesViewModel() },
 ) {
     val uiState by viewModel.state.collectAsStateWithLifecycle()
     var showFilterDialog by remember { mutableStateOf(false) }
+    var showCreateBuilding by remember { mutableStateOf(false) }
+    var showCreateGarage by remember { mutableStateOf(false) }
+    var showCreateOwner by remember { mutableStateOf(false) }
+    var sortMenuOpen by remember { mutableStateOf(false) }
+    var apartmentSort by remember { mutableStateOf(ApartmentSort.BUILDING) }
+    var sortAscending by remember { mutableStateOf(true) }
+    var residentSort by remember { mutableStateOf(ResidentSort.NAME) }
+    var garageSort by remember { mutableStateOf(GarageSort.NUMBER) }
 
     LaunchedEffect(Unit) {
         viewModel.load()
@@ -80,6 +94,36 @@ fun PropertiesScreen(
             onApply = { filters ->
                 viewModel.setFilters(filters)
                 showFilterDialog = false
+            },
+        )
+    }
+
+    if (showCreateBuilding) {
+        CreateBuildingSheet(
+            onDismiss = { showCreateBuilding = false },
+            onSaved = {
+                showCreateBuilding = false
+                viewModel.refresh()
+            },
+        )
+    }
+
+    if (showCreateGarage) {
+        CreateGarageSheet(
+            onDismiss = { showCreateGarage = false },
+            onSaved = {
+                showCreateGarage = false
+                viewModel.refresh()
+            },
+        )
+    }
+
+    if (showCreateOwner) {
+        CreateOwnerSheet(
+            onDismiss = { showCreateOwner = false },
+            onSaved = {
+                showCreateOwner = false
+                viewModel.refresh()
             },
         )
     }
@@ -113,8 +157,11 @@ fun PropertiesScreen(
                     }
                 },
                 actions = {
-                    // Filtr yalnız əmlak siyahılarına aiddir — Sakinlər tabında gizlədilir.
-                    if (uiState.selectedTab != PropertyTabType.RESIDENTS) {
+                    // Filtr yalnız əmlak siyahılarına aiddir — Binalar və
+                    // Sakinlər tablarında gizlədilir.
+                    val showFilters = uiState.selectedTab == PropertyTabType.APARTMENTS ||
+                        uiState.selectedTab == PropertyTabType.GARAGES
+                    if (showFilters) {
                         Box(
                             modifier = Modifier
                                 .size(36.dp)
@@ -132,6 +179,72 @@ fun PropertiesScreen(
                         }
                         Spacer(Modifier.width(8.dp))
                     }
+
+                    // Sıralama — panelin cədvəl başlıqlarındakı sıralama ilə eyni.
+                    if (showFilters || uiState.selectedTab == PropertyTabType.RESIDENTS) {
+                        Box {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(PropertyColors.Container)
+                                    .clickable { sortMenuOpen = true },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    Icons.Default.SwapVert,
+                                    "Sırala",
+                                    tint = PropertyColors.Terracotta,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+                            SortMenu(
+                                expanded = sortMenuOpen,
+                                selectedTab = uiState.selectedTab,
+                                apartmentSort = apartmentSort,
+                                residentSort = residentSort,
+                                garageSort = garageSort,
+                                ascending = sortAscending,
+                                onDismiss = { sortMenuOpen = false },
+                                onApartmentSort = { apartmentSort = it; sortMenuOpen = false },
+                                onResidentSort = { residentSort = it; sortMenuOpen = false },
+                                onGarageSort = { garageSort = it; sortMenuOpen = false },
+                                onToggleDirection = { sortAscending = !sortAscending; sortMenuOpen = false },
+                            )
+                        }
+                        Spacer(Modifier.width(8.dp))
+                    }
+
+                    val addLabel = when (uiState.selectedTab) {
+                        PropertyTabType.BUILDINGS -> "Bina"
+                        PropertyTabType.GARAGES -> "Qaraj"
+                        PropertyTabType.RESIDENTS -> "Sahib"
+                        else -> null
+                    }
+                    if (canManage && addLabel != null) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(PropertyColors.Terracotta)
+                                .clickable {
+                                    when (uiState.selectedTab) {
+                                        PropertyTabType.BUILDINGS -> showCreateBuilding = true
+                                        PropertyTabType.GARAGES -> showCreateGarage = true
+                                        PropertyTabType.RESIDENTS -> showCreateOwner = true
+                                        else -> Unit
+                                    }
+                                },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                Icons.Default.Add,
+                                "Yeni $addLabel",
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = PropertyColors.Background,
@@ -145,18 +258,22 @@ fun PropertiesScreen(
                 .padding(padding),
         ) {
             // Search bar
+            val onBuildingsTab = uiState.selectedTab == PropertyTabType.BUILDINGS
             OutlinedTextField(
-                value = uiState.searchQuery,
-                onValueChange = { viewModel.setSearchQuery(it) },
+                value = if (onBuildingsTab) uiState.buildingsQuery else uiState.searchQuery,
+                onValueChange = {
+                    if (onBuildingsTab) viewModel.setBuildingsQuery(it) else viewModel.setSearchQuery(it)
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp, vertical = 12.dp),
                 placeholder = {
                     Text(
-                        if (uiState.selectedTab == PropertyTabType.RESIDENTS) {
-                            "Axtar (ad, e-poçt, telefon…)"
-                        } else {
-                            "Axtar (bina, mənzil, sahib, qaraj…)"
+                        text = when (uiState.selectedTab) {
+                            PropertyTabType.BUILDINGS -> "Axtar (bina adı, ünvan…)"
+                            PropertyTabType.RESIDENTS -> "Axtar (ad, e-poçt, telefon…)"
+                            PropertyTabType.GARAGES -> "Axtar (nömrə, növ, sahibi…)"
+                            PropertyTabType.APARTMENTS -> "Axtar (bina, mənzil, sahib…)"
                         },
                         color = PropertyColors.MutedSoft,
                         fontSize = 14.sp,
@@ -189,12 +306,14 @@ fun PropertiesScreen(
             ) {
                 PropertyTab.entries.forEach { tab ->
                     val tabType = when (tab) {
+                        PropertyTab.BUILDINGS -> PropertyTabType.BUILDINGS
                         PropertyTab.APARTMENTS -> PropertyTabType.APARTMENTS
                         PropertyTab.GARAGES -> PropertyTabType.GARAGES
                         PropertyTab.RESIDENTS -> PropertyTabType.RESIDENTS
                     }
                     val selected = uiState.selectedTab == tabType
                     val count = when (tab) {
+                        PropertyTab.BUILDINGS -> stats.totalBuildings
                         PropertyTab.APARTMENTS -> stats.totalApartments
                         PropertyTab.GARAGES -> stats.totalGarages
                         PropertyTab.RESIDENTS -> uiState.residentsTotal
@@ -236,17 +355,31 @@ fun PropertiesScreen(
                 }
             }
 
-            // Stats row — yalnız əmlak tablarında (Sakinlər tabında əmlak statistikası yersizdir).
-            if (uiState.selectedTab != PropertyTabType.RESIDENTS) {
+            // Stats row — yalnız mənzil/qaraj tablarında.
+            if (uiState.selectedTab == PropertyTabType.APARTMENTS ||
+                uiState.selectedTab == PropertyTabType.GARAGES
+            ) {
                 StatsRow(stats)
             }
 
             when {
+                uiState.selectedTab == PropertyTabType.BUILDINGS -> BuildingsContent(
+                    buildings = uiState.buildings,
+                    apartmentCounts = uiState.apartmentCounts,
+                    query = uiState.buildingsQuery,
+                    loading = uiState.buildingsLoading,
+                    error = uiState.buildingsError,
+                    onRetry = { viewModel.load() },
+                    onBuildingClick = onBuildingClick,
+                )
+
                 uiState.selectedTab == PropertyTabType.RESIDENTS -> ResidentsContent(
                     residents = uiState.residents,
                     query = uiState.searchQuery,
                     loading = uiState.residentsLoading,
                     error = uiState.residentsError,
+                    sort = residentSort,
+                    ascending = sortAscending,
                     onRetry = { viewModel.loadResidents(force = true) },
                     onResidentClick = onResidentClick,
                 )
@@ -255,13 +388,55 @@ fun PropertiesScreen(
                 uiState.error != null -> PropertiesErrorState(uiState.error ?: "") { viewModel.load() }
                 properties.isEmpty() -> EmptyState()
                 else -> {
+                    val sortedProperties = remember(
+                        properties,
+                        uiState.selectedTab,
+                        apartmentSort,
+                        garageSort,
+                        sortAscending,
+                    ) {
+                        val comparator = when (uiState.selectedTab) {
+                            PropertyTabType.GARAGES -> when (garageSort) {
+                                GarageSort.NUMBER -> Comparator<PropertyItem> { a, b ->
+                                    (a.number?.toIntOrNull() ?: Int.MAX_VALUE)
+                                        .compareTo(b.number?.toIntOrNull() ?: Int.MAX_VALUE)
+                                }
+                                GarageSort.TYPE -> Comparator<PropertyItem> { a, b ->
+                                    a.subtitle.compareTo(b.subtitle, ignoreCase = true)
+                                }
+                            }
+                            else -> when (apartmentSort) {
+                                ApartmentSort.BUILDING -> Comparator<PropertyItem> { a, b ->
+                                    a.buildingName.orEmpty().compareTo(b.buildingName.orEmpty(), ignoreCase = true)
+                                }
+                                ApartmentSort.NUMBER -> Comparator<PropertyItem> { a, b ->
+                                    (a.number?.toIntOrNull() ?: Int.MAX_VALUE)
+                                        .compareTo(b.number?.toIntOrNull() ?: Int.MAX_VALUE)
+                                }
+                                ApartmentSort.FLOOR -> Comparator<PropertyItem> { a, b ->
+                                    (a.floor ?: Int.MAX_VALUE).compareTo(b.floor ?: Int.MAX_VALUE)
+                                }
+                                ApartmentSort.ROOMS -> Comparator<PropertyItem> { a, b ->
+                                    (a.roomCount ?: Int.MAX_VALUE).compareTo(b.roomCount ?: Int.MAX_VALUE)
+                                }
+                                ApartmentSort.AREA -> Comparator<PropertyItem> { a, b ->
+                                    (a.area ?: Double.MAX_VALUE).compareTo(b.area ?: Double.MAX_VALUE)
+                                }
+                                ApartmentSort.STATUS -> Comparator<PropertyItem> { a, b ->
+                                    a.status.orEmpty().compareTo(b.status.orEmpty(), ignoreCase = true)
+                                }
+                            }
+                        }
+                        properties.sortedWith(if (sortAscending) comparator else comparator.reversed())
+                    }
+
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         items(
-                            items = properties,
+                            items = sortedProperties,
                             key = { property -> property.id }
                         ) { property ->
                             PropertyCard(
@@ -271,7 +446,6 @@ fun PropertiesScreen(
                                         PropertyItemType.APARTMENT -> PropertyType.APARTMENT
                                         PropertyItemType.GARAGE -> PropertyType.GARAGE
                                     }
-                                    println("🏠 PropertyCard clicked: ID=${property.id}, type=$propType, title=${property.title}")
                                     onPropertyClick(property.id, propType)
                                 },
                             )
@@ -283,6 +457,86 @@ fun PropertiesScreen(
     }
 }
 
+// ------------------------------------------------------------- sıralama menyusu
+
+@Composable
+private fun SortMenu(
+    expanded: Boolean,
+    selectedTab: PropertyTabType,
+    apartmentSort: ApartmentSort,
+    residentSort: ResidentSort,
+    garageSort: GarageSort,
+    ascending: Boolean,
+    onDismiss: () -> Unit,
+    onApartmentSort: (ApartmentSort) -> Unit,
+    onResidentSort: (ResidentSort) -> Unit,
+    onGarageSort: (GarageSort) -> Unit,
+    onToggleDirection: () -> Unit,
+) {
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        when (selectedTab) {
+            PropertyTabType.APARTMENTS -> ApartmentSort.entries.forEach { sort ->
+                SortMenuItem(sort.label, sort == apartmentSort) { onApartmentSort(sort) }
+            }
+
+            PropertyTabType.GARAGES -> GarageSort.entries.forEach { sort ->
+                SortMenuItem(sort.label, sort == garageSort) { onGarageSort(sort) }
+            }
+
+            PropertyTabType.RESIDENTS -> ResidentSort.entries.forEach { sort ->
+                SortMenuItem(sort.label, sort == residentSort) { onResidentSort(sort) }
+            }
+
+            else -> Unit
+        }
+
+        HorizontalDivider(color = PropertyColors.Border)
+        DropdownMenuItem(
+            text = {
+                Text(
+                    text = if (ascending) "Azalan sıra" else "Artan sıra",
+                    fontSize = 13.sp,
+                    color = PropertyColors.Ink,
+                )
+            },
+            leadingIcon = {
+                Icon(
+                    Icons.Default.SwapVert,
+                    null,
+                    tint = PropertyColors.Muted,
+                    modifier = Modifier.size(18.dp),
+                )
+            },
+            onClick = onToggleDirection,
+        )
+    }
+}
+
+@Composable
+private fun SortMenuItem(label: String, selected: Boolean, onClick: () -> Unit) {
+    DropdownMenuItem(
+        text = {
+            Text(
+                text = label,
+                fontSize = 13.sp,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                color = PropertyColors.Ink,
+            )
+        },
+        trailingIcon = {
+            if (selected) {
+                Icon(
+                    Icons.Default.Check,
+                    null,
+                    tint = PropertyColors.Terracotta,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+        },
+        onClick = onClick,
+    )
+}
+
 // ------------------------------------------------------------- sakinlər
 
 @Composable
@@ -291,12 +545,14 @@ private fun ResidentsContent(
     query: String,
     loading: Boolean,
     error: String?,
+    sort: ResidentSort,
+    ascending: Boolean,
     onRetry: () -> Unit,
     onResidentClick: (String) -> Unit,
 ) {
-    val filtered = remember(residents, query) {
+    val filtered = remember(residents, query, sort, ascending) {
         val term = query.trim().lowercase()
-        if (term.isEmpty()) {
+        val matching = if (term.isEmpty()) {
             residents
         } else {
             residents.filter { resident ->
@@ -305,6 +561,15 @@ private fun ResidentsContent(
                     resident.phoneNumber?.contains(term) == true
             }
         }
+        val comparator = when (sort) {
+            ResidentSort.NAME -> Comparator<OwnerItemDto> { a, b ->
+                a.fullName.orEmpty().compareTo(b.fullName.orEmpty(), ignoreCase = true)
+            }
+            ResidentSort.EMAIL -> Comparator<OwnerItemDto> { a, b ->
+                a.email.orEmpty().compareTo(b.email.orEmpty(), ignoreCase = true)
+            }
+        }
+        matching.sortedWith(if (ascending) comparator else comparator.reversed())
     }
 
     when {
@@ -788,9 +1053,29 @@ private fun EmptyState() {
 // ---- Data models ----
 
 enum class PropertyTab(val label: String) {
+    BUILDINGS("Binalar"),
     APARTMENTS("Mənzillər"),
     GARAGES("Qarajlar"),
     RESIDENTS("Sakinlər"),
+}
+
+enum class ApartmentSort(val label: String) {
+    BUILDING("Bina"),
+    NUMBER("Nömrə"),
+    FLOOR("Mərtəbə"),
+    ROOMS("Otaq"),
+    AREA("Sahə"),
+    STATUS("Status"),
+}
+
+enum class GarageSort(val label: String) {
+    NUMBER("Nömrə"),
+    TYPE("Növ"),
+}
+
+enum class ResidentSort(val label: String) {
+    NAME("Ad Soyad"),
+    EMAIL("E-poçt"),
 }
 
 enum class PropertyType {
@@ -813,7 +1098,34 @@ private fun FilterDialog(
     var selectedRooms by remember { mutableStateOf(currentFilters.roomCounts.toSet()) }
     var selectedStatus by remember { mutableStateOf(currentFilters.status) }
     var hasOwnerOnly by remember { mutableStateOf(currentFilters.hasOwnerOnly) }
+    var selectedOwner by remember { mutableStateOf<OwnerItemDto?>(null) }
+    var noOwner by remember { mutableStateOf(currentFilters.noOwner) }
+    var minArea by remember {
+        mutableStateOf(if (currentFilters.minArea > 0.0) currentFilters.minArea.toString() else "")
+    }
+    var maxArea by remember {
+        mutableStateOf(if (currentFilters.maxArea < 1000.0) currentFilters.maxArea.toString() else "")
+    }
+    var ownerQuery by remember { mutableStateOf("") }
+    var ownerResults by remember { mutableStateOf<List<OwnerItemDto>>(emptyList()) }
+    var ownerLoading by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
+
+    LaunchedEffect(ownerQuery) {
+        if (ownerQuery.isBlank()) {
+            ownerResults = emptyList()
+            ownerLoading = false
+            return@LaunchedEffect
+        }
+        delay(350)
+        ownerLoading = true
+        ownerResults = runCatching {
+            AppGraph.service(MtkService::class.java)
+                .owners(SearchBody(searchTerm = ownerQuery.trim(), pageSize = 8))
+                .data?.items.orEmpty()
+        }.getOrDefault(emptyList())
+        ownerLoading = false
+    }
 
     AppSheetDialog(
         onDismissRequest = onDismiss,
@@ -825,8 +1137,12 @@ private fun FilterDialog(
                             buildingIds = selectedBuildings.toList(),
                             floors = selectedFloors.toList(),
                             roomCounts = selectedRooms.toList(),
+                            minArea = minArea.toDoubleOrNull() ?: 0.0,
+                            maxArea = maxArea.toDoubleOrNull() ?: 1000.0,
                             status = selectedStatus,
                             hasOwnerOnly = hasOwnerOnly,
+                            ownerIds = listOfNotNull(selectedOwner?.id),
+                            noOwner = noOwner,
                         )
                     )
                 },
@@ -1007,6 +1323,61 @@ private fun FilterDialog(
 
                 HorizontalDivider(color = PropertyColors.Border)
 
+                // Sahib üzrə filtr — panelin "Sahibi" sütunu.
+                Text(
+                    "Sahibi",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = PropertyColors.Ink,
+                )
+                OwnerPicker(
+                    selected = selectedOwner,
+                    owners = ownerResults,
+                    query = ownerQuery,
+                    loading = ownerLoading,
+                    onQueryChange = { ownerQuery = it },
+                    onSelect = { selectedOwner = it },
+                )
+                FilterChip(
+                    selected = noOwner,
+                    onClick = { noOwner = !noOwner },
+                    label = { Text("Yalnız sahibsiz", fontSize = 12.sp) },
+                )
+
+                HorizontalDivider(color = PropertyColors.Border)
+
+                // Sahə aralığı — panelin "Sahə (m²)" sütunu.
+                Text(
+                    "Sahə (m²)",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = PropertyColors.Ink,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = minArea,
+                        onValueChange = { minArea = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                        label = { Text("Min", fontSize = 11.sp) },
+                        singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Number,
+                        ),
+                        modifier = Modifier.weight(1f),
+                    )
+                    OutlinedTextField(
+                        value = maxArea,
+                        onValueChange = { maxArea = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                        label = { Text("Maks", fontSize = 11.sp) },
+                        singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Number,
+                        ),
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+
+                HorizontalDivider(color = PropertyColors.Border)
+
                 // Owner filter
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1039,6 +1410,11 @@ private fun FilterDialog(
                         selectedRooms = emptySet()
                         selectedStatus = null
                         hasOwnerOnly = false
+                        selectedOwner = null
+                        ownerQuery = ""
+                        noOwner = false
+                        minArea = ""
+                        maxArea = ""
                     },
                     modifier = Modifier.fillMaxWidth(),
                 ) {

@@ -8,5 +8,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 
 /** Small helper so screens can build their ViewModel without a DI framework. */
 @Composable
-inline fun <reified VM : ViewModel> mtkViewModel(crossinline create: () -> VM): VM =
-    viewModel(factory = viewModelFactory { initializer { create() } })
+inline fun <reified VM : ViewModel> mtkViewModel(
+    key: String? = null,
+    crossinline create: () -> VM,
+): VM = viewModel(key = key, factory = viewModelFactory { initializer { create() } })

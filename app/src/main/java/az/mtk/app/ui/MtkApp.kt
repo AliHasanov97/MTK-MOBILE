@@ -32,8 +32,11 @@ import az.mtk.app.ui.screens.hr.HrScreen
 import az.mtk.app.ui.screens.identity.IdentityScreen
 import az.mtk.app.ui.screens.news.NewsScreen
 import az.mtk.app.ui.screens.landing.*
+import az.mtk.app.ui.screens.management.ManagementScreen
+import az.mtk.app.ui.screens.management.ManagementTab
 import az.mtk.app.ui.screens.operations.OperationsScreen
 import az.mtk.app.ui.screens.owners.OwnerDetailScreen
+import az.mtk.app.ui.screens.properties.BuildingDetailScreen
 import az.mtk.app.ui.screens.properties.PropertiesScreen
 import az.mtk.app.ui.screens.properties.PropertyDetailScreen
 import az.mtk.app.ui.screens.properties.PropertyType
@@ -62,6 +65,9 @@ fun MtkApp() {
     // geri qayıdanda bərpa olunacaq əmlak.
     var selectedOwnerId by remember { mutableStateOf<String?>(null) }
     var ownerReturnProperty by remember { mutableStateOf<Pair<String, PropertyType>?>(null) }
+    // Bina detalları: Binalar tabından açılan bina səhifəsi. Əmlak detalları
+    // onun üzərində açılır — geri qayıdanda bina səhifəsi bərpa olunur.
+    var selectedBuildingId by remember { mutableStateOf<String?>(null) }
     // İnventar modulu: siyahı və material detalı.
     var showInventory by remember { mutableStateOf(false) }
     var selectedNomenclatureId by remember { mutableStateOf<String?>(null) }
@@ -81,6 +87,10 @@ fun MtkApp() {
     // HR modulu: işçilər, ərizələr, əmrlər, tabel, təqvim və lüğətlər.
     var showHr by remember { mutableStateOf(false) }
     var selectedHrEmployeeId by remember { mutableStateOf<String?>(null) }
+    // İdarəetmə modulu: şirkət profili və audit qeydləri. Auditə birbaşa
+    // keçid dashboard-dakı "Audit" əməliyyatından gəlir.
+    var showManagement by remember { mutableStateOf(false) }
+    var managementAuditTab by remember { mutableStateOf(false) }
     var companyName by remember { mutableStateOf("MTK") }
 
     val repository = remember { LandingRepository() }
@@ -123,8 +133,28 @@ fun MtkApp() {
         }
     }
 
-    // System back from the dashboard returns to the site.
-    BackHandler(enabled = showDashboard) {
+    // Panel ekranlarından biri açıqdırsa landing başlığı göstərilməməlidir.
+    // Əks halda sistem "geri" düyməsi dashboard-u bağlayanda açıq detal
+    // ekranının üstündə "Yusifoğlu MTK" başlığı görünür.
+    val panelScreenOpen = authenticated != null && (
+        showDashboard || showProperties || selectedPropertyId != null ||
+            selectedOwnerId != null || selectedBuildingId != null ||
+            showInventory || selectedNomenclatureId != null ||
+            showOperations || showTransactions || showReports ||
+            showAppeals || showIdentity || showNews || showHr ||
+            showManagement || selectedHrEmployeeId != null
+        )
+
+    val dashboardHomeVisible = showDashboard && authenticated != null &&
+        !showProperties && selectedPropertyId == null && selectedOwnerId == null &&
+        selectedBuildingId == null && !showInventory && selectedNomenclatureId == null &&
+        !showOperations && !showTransactions && !showReports && !showAppeals &&
+        !showIdentity && !showNews && !showHr && !showManagement &&
+        selectedHrEmployeeId == null
+
+    // System back from the dashboard returns to the site — yalnız dashboard
+    // həqiqətən görünəndə; alt ekranlardan geri öz ekranına qayıtmalıdır.
+    BackHandler(enabled = dashboardHomeVisible) {
         showDashboard = false
         selectedGuideSlug = null
         selectedArticleId = null
@@ -181,6 +211,54 @@ fun MtkApp() {
         showHr = false
     }
 
+    // Əmlak modulu: əvvəlcə detal ekranları, sonra siyahı bağlanır. Hər
+    // handler yalnız öz ekranı görünəndə aktivdir ki, sistem "geri" düyməsi
+    // dashboard-u bağlayıb açıq detalın üstündə landing başlığını göstərməsin.
+    BackHandler(enabled = selectedPropertyId != null) {
+        val previous = previousProperty
+        if (previous != null) {
+            selectedPropertyId = previous.first
+            selectedPropertyType = previous.second
+            previousProperty = null
+        } else {
+            selectedPropertyId = null
+            selectedPropertyType = null
+        }
+    }
+
+    BackHandler(enabled = selectedOwnerId != null && selectedPropertyId == null) {
+        val returnProperty = ownerReturnProperty
+        if (returnProperty != null) {
+            ownerReturnProperty = null
+            selectedOwnerId = null
+            selectedPropertyId = returnProperty.first
+            selectedPropertyType = returnProperty.second
+        } else {
+            selectedOwnerId = null
+        }
+    }
+
+    // Bina detalları açıqdırsa sistem "geri" düyməsi bina siyahısına qaytarır.
+    BackHandler(
+        enabled = selectedBuildingId != null && selectedPropertyId == null &&
+            selectedOwnerId == null,
+    ) {
+        selectedBuildingId = null
+    }
+
+    // Əmlak siyahısı açıqdırsa sistem "geri" düyməsi dashboard-a qaytarır.
+    BackHandler(
+        enabled = showProperties && selectedPropertyId == null &&
+            selectedOwnerId == null && selectedBuildingId == null,
+    ) {
+        showProperties = false
+    }
+
+    // İdarəetmə modulu açıqdırsa sistem "geri" düyməsi dashboard-a qaytarır.
+    BackHandler(enabled = showManagement) {
+        showManagement = false
+    }
+
     // Load company name on startup
     LaunchedEffect(Unit) {
         scope.launch {
@@ -190,8 +268,8 @@ fun MtkApp() {
 
     Scaffold(
         topBar = {
-            // Hide top bar when showing guide, article detail, or the dashboard
-            if (selectedGuideSlug == null && selectedArticleId == null && !showDashboard) {
+            // Hide top bar when showing guide, article detail, or any panel screen.
+            if (selectedGuideSlug == null && selectedArticleId == null && !panelScreenOpen) {
                 LandingTopBar(
                     companyName = companyName,
                     onLoginClick = {
@@ -283,6 +361,22 @@ fun MtkApp() {
                     },
                 )
             }
+        } else if (selectedBuildingId != null && authenticated != null) {
+            // Bina detalları (Binalar → bina kartı): sxem, tiplər, mənzillər.
+            key(selectedBuildingId) {
+                BuildingDetailScreen(
+                    buildingId = selectedBuildingId!!,
+                    onBack = { selectedBuildingId = null },
+                    onOpenProperty = { propertyId, propertyType ->
+                        previousProperty = null
+                        selectedPropertyId = propertyId
+                        selectedPropertyType = propertyType
+                    },
+                    canManage = authenticated.profile.roles.any {
+                        it == Roles.ADMIN || it == Roles.BUILDING_MANAGER
+                    },
+                )
+            }
         } else if (selectedHrEmployeeId != null && authenticated != null) {
             // İşçi kartı (HR → İşçilər)
             key(selectedHrEmployeeId) {
@@ -366,6 +460,17 @@ fun MtkApp() {
             NewsScreen(
                 onBack = { showNews = false },
             )
+        } else if (showManagement && authenticated != null) {
+            // İdarəetmə: şirkət profili + bütün modulların audit jurnalı.
+            ManagementScreen(
+                onBack = { showManagement = false },
+                initialTab = if (managementAuditTab) {
+                    ManagementTab.AUDIT
+                } else {
+                    ManagementTab.COMPANY
+                },
+                canManage = authenticated.profile.roles.contains(Roles.ADMIN),
+            )
         } else if (showProperties && authenticated != null) {
             // Properties (Əmlak Fondu) screen
             PropertiesScreen(
@@ -380,6 +485,13 @@ fun MtkApp() {
                     println("👤 MtkApp: Opening resident detail - ID=$residentId")
                     ownerReturnProperty = null
                     selectedOwnerId = residentId
+                },
+                onBuildingClick = { buildingId ->
+                    previousProperty = null
+                    selectedBuildingId = buildingId
+                },
+                canManage = authenticated.profile.roles.any {
+                    it == Roles.ADMIN || it == Roles.BUILDING_MANAGER
                 },
             )
         } else if (showDashboard && authenticated != null) {
@@ -434,6 +546,10 @@ fun MtkApp() {
                 },
                 onOpenHr = {
                     showHr = true
+                },
+                onOpenManagement = { audit ->
+                    managementAuditTab = audit
+                    showManagement = true
                 },
             )
         } else {
