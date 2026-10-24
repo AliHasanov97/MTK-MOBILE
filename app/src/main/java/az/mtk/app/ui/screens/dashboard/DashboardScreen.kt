@@ -52,6 +52,7 @@ import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.SupportAgent
@@ -217,6 +218,7 @@ fun DashboardScreen(
     onOpenNews: () -> Unit = {},
     onOpenHr: () -> Unit = {},
     onOpenManagement: (Boolean) -> Unit = {},
+    onOpenSecurity: () -> Unit = {},
     viewModel: DashboardViewModel = mtkViewModel { DashboardViewModel() },
 ) {
     val uiState by viewModel.state.collectAsStateWithLifecycle()
@@ -284,6 +286,7 @@ fun DashboardScreen(
                 DashboardTopBar(
                     onBack = onBack,
                     onLogout = onLogout,
+                    onOpenSecurity = onOpenSecurity,
                 )
 
                 Column(
@@ -421,6 +424,7 @@ fun DashboardScreen(
 private fun DashboardTopBar(
     onBack: () -> Unit,
     onLogout: () -> Unit,
+    onOpenSecurity: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -435,6 +439,7 @@ private fun DashboardTopBar(
 
         Spacer(Modifier.weight(1f))
 
+        HeroIconButton(Icons.Default.Security, "Təhlükəsizlik", onOpenSecurity)
         HeroIconButton(Icons.AutoMirrored.Filled.ExitToApp, "Çıxış", onLogout)
     }
 }

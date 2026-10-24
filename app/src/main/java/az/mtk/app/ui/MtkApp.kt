@@ -9,6 +9,8 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -24,6 +26,12 @@ import az.mtk.app.ui.navigation.LandingBottomNav
 import az.mtk.app.ui.navigation.LandingRoutes
 import az.mtk.app.ui.navigation.LandingTopBar
 import az.mtk.app.ui.screens.dashboard.DashboardScreen
+import az.mtk.app.ui.screens.lock.LockMode
+import az.mtk.app.ui.screens.lock.LockScreen
+import az.mtk.app.ui.screens.lock.LockViewModel
+import az.mtk.app.ui.screens.lock.PinSetupDialog
+import az.mtk.app.ui.screens.security.SecuritySettingsScreen
+import androidx.lifecycle.viewmodel.compose.viewModel
 import az.mtk.app.ui.screens.inventory.InventoryItemScreen
 import az.mtk.app.ui.screens.inventory.InventoryScreen
 import az.mtk.app.ui.screens.appeals.AppealsScreen
@@ -55,6 +63,16 @@ fun MtkApp() {
     // the deep link comes back authenticated.
     var showDashboard by remember { mutableStateOf(false) }
     var awaitingLogin by remember { mutableStateOf(false) }
+
+    // PIN/Lock state
+    var showLockScreen by remember { mutableStateOf(false) }
+    var showPinSetupDialog by remember { mutableStateOf(false) }
+    var showSecuritySettings by remember { mutableStateOf(false) }
+    var pinChangeMode by remember { mutableStateOf(false) }
+    val lockViewModel: LockViewModel = viewModel()
+    val lockState by lockViewModel.state.collectAsStateWithLifecycle()
+    val pinManager = remember { AppGraph.pinManager }
+    val lockManager = remember { AppGraph.lockManager }
     var showProperties by remember { mutableStateOf(false) }
     var selectedPropertyId by remember { mutableStateOf<String?>(null) }
     var selectedPropertyType by remember { mutableStateOf<PropertyType?>(null) }
@@ -119,7 +137,32 @@ fun MtkApp() {
     LaunchedEffect(authenticated) {
         if (awaitingLogin && authenticated != null) {
             awaitingLogin = false
-            showDashboard = true
+            // If PIN is not set, ask user if they want to set it
+            if (!pinManager.isPinSet()) {
+                showPinSetupDialog = true
+            } else {
+                showDashboard = true
+            }
+        }
+    }
+
+    // Check lock state when app resumes with existing session (initial load)
+    LaunchedEffect(authenticated) {
+        if (authenticated != null && !awaitingLogin && pinManager.isPinSet()) {
+            if (lockManager.shouldLock()) {
+                showLockScreen = true
+                lockViewModel.checkLockState()
+            } else {
+                showDashboard = true
+            }
+        }
+    }
+
+    // Check lock state when app resumes from background (lifecycle event)
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        if (authenticated != null && pinManager.isPinSet() && lockManager.shouldLock()) {
+            showLockScreen = true
+            lockViewModel.checkLockState()
         }
     }
 
@@ -142,8 +185,66 @@ fun MtkApp() {
             showInventory || selectedNomenclatureId != null ||
             showOperations || showTransactions || showReports ||
             showAppeals || showIdentity || showNews || showHr ||
-            showManagement || selectedHrEmployeeId != null
+            showManagement || selectedHrEmployeeId != null ||
+            showLockScreen || showSecuritySettings
         )
+
+    // PIN Setup Dialog
+    if (showPinSetupDialog) {
+        PinSetupDialog(
+            onSetup = {
+                showPinSetupDialog = false
+                lockViewModel.startPinSetup()
+                showLockScreen = true
+            },
+            onSkip = {
+                showPinSetupDialog = false
+                showDashboard = true
+            },
+        )
+    }
+
+    // Security Settings Screen
+    if (showSecuritySettings && authenticated != null) {
+        SecuritySettingsScreen(
+            onBack = { showSecuritySettings = false },
+            onSetupPin = {
+                showSecuritySettings = false
+                pinChangeMode = false
+                lockViewModel.startPinSetup()
+                showLockScreen = true
+            },
+            onChangePin = {
+                showSecuritySettings = false
+                pinChangeMode = true
+                lockViewModel.startPinChange()
+                showLockScreen = true
+            },
+        )
+        return
+    }
+
+    // Lock Screen (PIN/Biometric)
+    if (showLockScreen && authenticated != null) {
+        LockScreen(
+            viewModel = lockViewModel,
+            onUnlocked = {
+                showLockScreen = false
+                if (pinChangeMode) {
+                    pinChangeMode = false
+                    showSecuritySettings = true
+                } else {
+                    showDashboard = true
+                }
+            },
+            onKeycloakLogin = {
+                showLockScreen = false
+                pinChangeMode = false
+                startKeycloakLogin()
+            },
+        )
+        return
+    }
 
     val dashboardHomeVisible = showDashboard && authenticated != null &&
         !showProperties && selectedPropertyId == null && selectedOwnerId == null &&
@@ -506,6 +607,8 @@ fun MtkApp() {
                 },
                 onLogout = {
                     scope.launch {
+                        pinManager.clearPin()
+                        lockManager.clear()
                         auth.logout()
                     }
                     showDashboard = false
@@ -550,6 +653,9 @@ fun MtkApp() {
                 onOpenManagement = { audit ->
                     managementAuditTab = audit
                     showManagement = true
+                },
+                onOpenSecurity = {
+                    showSecuritySettings = true
                 },
             )
         } else {

@@ -87,4 +87,7 @@ dependencies {
     implementation(libs.coil.compose)
 
     implementation(libs.androidx.browser)
+
+    implementation(libs.androidx.security.crypto)
+    implementation(libs.androidx.biometric)
 }

@@ -170,6 +170,35 @@ class AuthRepository(private val context: Context) {
         }
     }
 
+    /** Check if we have a valid session (with refresh token). */
+    fun hasValidSession(): Boolean {
+        val session = store.load() ?: return false
+        return session.refreshToken != null
+    }
+
+    /** Refresh token if needed, returns true on success. */
+    suspend fun refreshTokenIfNeeded(): Boolean = withContext(Dispatchers.IO) {
+        val session = store.load() ?: return@withContext false
+        if (isFresh(session)) return@withContext true
+
+        lock.withLock {
+            val latest = store.load() ?: return@withContext false
+            if (isFresh(latest)) return@withContext true
+
+            return@withContext try {
+                val refreshed = refreshBlocking(latest)
+                if (refreshed != null) {
+                    _state.value = AuthState.Authenticated(refreshed.profile)
+                    true
+                } else {
+                    false
+                }
+            } catch (e: Exception) {
+                false
+            }
+        }
+    }
+
     /** Forces a refresh after a 401, even if the access token has not expired yet. */
     fun forceRefresh(): String? = lock.withLock {
         val session = store.load() ?: return null

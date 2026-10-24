@@ -18,7 +18,7 @@ object AppConfig {
     const val RedirectScheme = "az.mtk.app"
     const val RedirectUri = "$RedirectScheme:/oauth2redirect"
 
-    const val Scope = "openid profile email"
+    const val Scope = "openid profile email offline_access"
 
     // Keycloak exposes these at fixed paths under the realm issuer.
     const val AuthorizationEndpoint = "$OidcIssuer/protocol/openid-connect/auth"

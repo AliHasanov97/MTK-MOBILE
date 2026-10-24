@@ -5,7 +5,10 @@ import az.mtk.app.data.api.AuthInterceptor
 import az.mtk.app.data.api.MtkRepository
 import az.mtk.app.data.api.MtkService
 import az.mtk.app.data.api.TokenAuthenticator
+import az.mtk.app.data.auth.AppLockManager
 import az.mtk.app.data.auth.AuthRepository
+import az.mtk.app.data.auth.BiometricHelper
+import az.mtk.app.data.auth.PinManager
 import coil.ImageLoader
 import com.google.gson.GsonBuilder
 import okhttp3.OkHttpClient
@@ -30,10 +33,24 @@ object AppGraph {
     lateinit var httpClient: OkHttpClient
         private set
 
+    lateinit var pinManager: PinManager
+        private set
+
+    lateinit var lockManager: AppLockManager
+        private set
+
+    lateinit var biometricHelper: BiometricHelper
+        private set
+
     private lateinit var retrofitInstance: Retrofit
 
     fun init(context: Context) {
         appContext = context.applicationContext
+
+        pinManager = PinManager(appContext)
+        lockManager = AppLockManager(appContext)
+        biometricHelper = BiometricHelper(appContext)
+
         auth = AuthRepository(appContext)
 
         httpClient = OkHttpClient.Builder()
